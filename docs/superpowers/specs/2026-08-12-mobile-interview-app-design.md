@@ -2,7 +2,7 @@
 
 ## Özet
 
-`hirevox-mobile`, mevcut HireVox web platformunun (`/Users/tkaralar/Projects/video-ai`) aday mülakat akışının **React Native (Expo)** ile yazılmış mobil karşılığıdır. Uygulama adaylara yöneliktir; İK/admin tarafı bu projenin kapsamı dışındadır. Mevcut backend'e (Express.js + SQLite, REST API + `/ws/stt` WebSocket) doğrudan bağlanır; backend'de herhangi bir değişiklik gerekmez.
+`hirevox-mobile`, mevcut HireVox web platformunun (`/Users/tkaralar/Projects/video-ai`) aday mülakat akışının **React Native (Expo)** ile yazılmış mobil karşılığıdır. Uygulama adaylara yöneliktir; İK/admin tarafı bu projenin kapsamı dışındadır. Mevcut backend'e (Express.js + SQLite, REST API + `/ws/stt` WebSocket) doğrudan bağlanır; tek bir istisna dışında backend'de değişiklik gerekmez (bkz. "Harici Bağımlılık" bölümü).
 
 ## Kapsam
 
@@ -60,7 +60,15 @@ Yeni bir Expo (React Native) uygulaması, `video-ai` backend'inin mevcut REST AP
 
 **Bütünlük (integrity):** useProctor arka plan/ön plan geçişlerini `/api/integrity/event`'e loglar; SessionRecorder kaydı ön plana dönüldüğünde kaldığı yerden sürdürür (bkz. Native Modüller bölümü).
 
-**Sonuç:** `finish-questions` sonrası backend değerlendirmeyi (`/api/evaluate`) tetikler, EvaluatingScreen kısa bir bekleme gösterir, ardından doğrudan ResultScreen'e geçilir — web'deki gibi ek soru (extra) adımı yok.
+**Sonuç:** EvaluatingScreen açılınca `POST /api/evaluate {sessionId}` çağrılır (web'in `EvaluatingPage.jsx`'i ile aynı davranış: idempotent olduğu için `finish-questions`'ın arka planda zaten başlattığı değerlendirmeyle çakışmaz), tamamlanınca doğrudan ResultScreen'e geçilir — web'deki gibi ek soru (extra) adımı yok.
+
+## Harici Bağımlılık: Video Segment Desteği (video-ai ekibi)
+
+Planlama sırasında bulunan bir uyumsuzluk: web'de `MediaRecorder` sekme arka plana alınsa da kesintisiz kaydeder (tek video akışı), bu yüzden mevcut `/api/interview/video-chunk` + `/api/interview/video-finalize` mimarisi (parçaları tek dosyaya `fs.appendFile` ile ekleme) web için doğru çalışır. Mobilde ise OS, uygulama arka plana düştüğünde kamera erişimini zorla kesiyor (bkz. aşağıdaki "Arka plan davranışı" notu) — ön plana dönüşte yeni, bağımsız bir video dosyası (segment) başlamak zorunda. Bu segmentleri mevcut mantıkla art arda eklemek bozuk video üretir.
+
+**Çözüm (video-ai ekibine iletildi, `docs/superpowers/specs/2026-08-12-video-segment-backend-request.md`):** `video-chunk`/`video-finalize`'a opsiyonel `segmentIndex` alanı eklenir (varsayılan `0` — web hiç etkilenmez), segment ≥1 ayrı dosyaya yazılır ve yeni bir `video_segments` tablosunda saklanır. Bu, spec'in "backend'e dokunulmaz" kararına tek, izole ve karşı tarafça onaylı bir istisnadır.
+
+**Mobil taraf bu sözleşmenin var olacağını varsayarak inşa edilir** (implementasyon planı `SessionRecorder`'ı `segmentIndex` gönderecek şekilde tasarlar); video-ai ekibi değişikliği yapana kadar yalnızca segment 0 (kesintisiz senaryo) sorunsuz çalışır.
 
 ## Native Modüller, İzinler ve Dayanıklılık
 
