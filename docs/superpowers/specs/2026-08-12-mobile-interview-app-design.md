@@ -1,0 +1,96 @@
+# Hirevox Mobile — Aday Mülakat Uygulaması Tasarımı
+
+## Özet
+
+`hirevox-mobile`, mevcut HireVox web platformunun (`/Users/tkaralar/Projects/video-ai`) aday mülakat akışının **React Native (Expo)** ile yazılmış mobil karşılığıdır. Uygulama adaylara yöneliktir; İK/admin tarafı bu projenin kapsamı dışındadır. Mevcut backend'e (Express.js + SQLite, REST API + `/ws/stt` WebSocket) doğrudan bağlanır; backend'de herhangi bir değişiklik gerekmez.
+
+## Kapsam
+
+- **Kullanıcı:** Aday (candidate) — İK/admin paneli kapsam dışı.
+- **Akış:** AI ile sesli mülakat (web'deki zorluk-merdiveni mantığı backend'de zaten var, mobil ona bağlanır).
+- **Platform:** iOS + Android, tek kod tabanı (Expo).
+
+## Kararlar Özeti
+
+| Konu | Karar |
+|---|---|
+| Teknoloji | React Native (Expo) |
+| Proctoring/video | Web'deki gibi oturum boyu kamera+ses kaydı, 10sn'lik chunk upload |
+| Arka plana düşme | Bütünlük olayı olarak loglanır; video OS kısıtı nedeniyle duraklar, ön plana dönünce devam eder |
+| Kod soruları | Sözlü sorulur, aday sözlü açıklar (yazılı kod editörü yok) |
+| Giriş | Deep link ile uygulama açılır (mail linki → token URL'den okunur), aday erişim kodunu girer |
+| Bağlantı kesintisi | Kısa toleransla (30-60sn) yerelde buffer'lanır, aşılırsa mülakat sonlandırılır |
+| Soru-cevap akışı | Web ile aynı: canlı streaming STT (`/ws/stt` WebSocket, Deepgram relay) |
+| Mimari yaklaşım | Native RN/Expo, mevcut API'lere doğrudan bağlanır (backend'e dokunulmaz) |
+| Extra (ek soru) adımı | Yok — web tarafında da kaldırılmış, EvaluatingScreen'den doğrudan ResultScreen'e geçilir |
+
+## Mimari
+
+Yeni bir Expo (React Native) uygulaması, `video-ai` backend'inin mevcut REST API'lerine ve `/ws/stt` WebSocket'ine doğrudan bağlanır. Backend'de değişiklik yapılmaz — `/api/interview/answer` uç noktası `type` alanını zaten opsiyonel kabul edip göndermezse "verbal" varsayıyor, dolayısıyla mobilde kod sorularının sözlü cevap olarak kaydedilmesi salt client tarafı bir davranış (backend değişikliği gerektirmiyor). RN tarafında framework olarak Expo Router (dosya tabanlı ekran yönlendirme) kullanılır; state yönetimi web'deki gibi basit tutulur (React Context + useReducer), ekstra bir state kütüphanesi (Redux vb.) gerekmez — akış tek yönlü ve doğrusal (login → consent → prep → intro → questions → evaluating → result).
+
+### Değerlendirilen diğer yaklaşımlar (seçilmedi)
+
+- **Paylaşımlı çekirdek paket:** `video-ai`'daki iş mantığının (API client, state machine, STT wrapper) ortak bir pakete çıkarılıp hem web hem mobil tarafından kullanılması. Uzun vadede daha tutarlı olurdu ama üretimdeki web reposuna dokunmayı ve monorepo/workspace kurulumunu gerektirdiği için bu projenin kapsamını aşıyor (YAGNI). İleride ayrı bir iş olarak değerlendirilebilir.
+- **WebView tabanlı hibrit:** Web akışının RN WebView içine gömülmesi. En hızlı teslim olurdu ama WebView içinde sürekli oturum-boyu kamera+ses kaydı platformlar arası güvenilmez ve arka plana düşünce davranışı öngörülemez — proctoring gereksinimini garanti edemediği için elenmiştir.
+
+## Ekranlar ve Bileşenler
+
+**Web ekranları → Mobil ekranları**
+
+- LoginPage → LoginScreen — Deep link'ten token otomatik okunur, kullanıcı sadece erişim kodunu girer
+- ConsentPage → ConsentScreen — KVKK + proctoring (video/ses kaydı) onay metni
+- PrepPage → PrepScreen — Kamera/mikrofon izni istenir + önizleme
+- IntroPage → IntroScreen — TTS karşılama, 2dk tanıtım kaydı
+- QuestionPage → QuestionScreen — Soru sesli sorulur, cevap kaydedilir + canlı STT; kod soruları da bu ekranda sözlü modda sorulur (ayrı editör ekranı yok)
+- EvaluatingPage → EvaluatingScreen — Bekleme ekranı
+- ResultPage → ResultScreen — Teşekkür ekranı
+
+**Paylaşılan native modüller/hook'lar**
+
+- **SessionRecorder** — Consent onayından itibaren oturum boyu kamera+ses kaydı, 10sn chunk'larla upload; ağ kesintisinde chunk'ları yerelde buffer'lar.
+- **QuestionRecorder** — Her soruda cevabı kaydeder, `/ws/stt`'ye canlı akıtır (web'deki `Recorder.jsx` mantığının native karşılığı).
+- **useProctor (mobil)** — `AppState` ile arka plan/ön plana geçişi izler, `/api/integrity/event`'e loglar.
+- **DeepLinkHandler** — Universal Links/App Links ile gelen linkten token'ı çözüp LoginScreen'e aktarır.
+
+## Veri Akışı
+
+**Giriş:** Aday mail'deki linke tıklar → deep link uygulamayı açar → token URL'den okunur → LoginScreen'de erişim kodu girilir → `POST /api/login {code, token}` → `sessionId` alınır ve cihazda (SecureStore) tutulur.
+
+**Mülakat ilerleyişi:** Consent onayı (`/api/interview/consent`) ile SessionRecorder başlar (oturum boyu video+ses, 10sn chunk upload). Intro ve her soru için QuestionRecorder cevabı `/ws/stt` üzerinden canlı akıtır, dönen transkript `askedText`/`transcript` ile `/api/interview/answer`'a gönderilir. Sıradaki soru `/api/interview/next` ile (zorluk merdiveni mantığı backend'de) çekilir. Son soru sonrası `/api/interview/finish-questions` çağrılır, SessionRecorder durur ve son chunk'lar flush edilir.
+
+**Bütünlük (integrity):** useProctor arka plan/ön plan geçişlerini `/api/integrity/event`'e loglar; SessionRecorder kaydı ön plana dönüldüğünde kaldığı yerden sürdürür (bkz. Native Modüller bölümü).
+
+**Sonuç:** `finish-questions` sonrası backend değerlendirmeyi (`/api/evaluate`) tetikler, EvaluatingScreen kısa bir bekleme gösterir, ardından doğrudan ResultScreen'e geçilir — web'deki gibi ek soru (extra) adımı yok.
+
+## Native Modüller, İzinler ve Dayanıklılık
+
+**İzinler:** Kamera + mikrofon (`expo-camera`, `expo-av`) PrepScreen'de istenir; reddedilirse mülakata başlanamaz. `expo-keep-awake` ile ekran mülakat boyunca kilitlenmez (kilitlenme = arka plana düşme ile aynı şekilde ele alınır).
+
+**Arka plan davranışı — OS kısıtı:** iOS ve Android, uygulama arka plana düştüğünde kamera erişimini işletim sistemi seviyesinde otomatik keser — bu bir tasarım tercihi değil, platform kısıtıdır. "Arka planda kayda devam" fiilen mümkün değildir; bunun yerine SessionRecorder arka plana geçişte videoyu duraklatır, `useProctor` olayı `/api/integrity/event`'e loglar, ön plana dönüldüğünde kayıt kaldığı yerden devam eder.
+
+**Ağ dayanıklılığı:** `NetInfo` ile bağlantı durumu izlenir. Video/ses chunk'ları yüklenemezse yerel dosya sistemine (`expo-file-system`) kuyruklanır ve bağlantı dönünce sırayla yüklenir. Kesinti başladığında bir sayaç başlar (30-60sn tolerans); bağlantı bu süre içinde dönmezse mülakat sonlandırılır ve bütünlük olayı loglanır.
+
+**Deep link:** `expo-linking` + Universal Links (iOS) / App Links (Android) yapılandırması; uygulama yüklü değilse mağaza sayfasına yönlendirme.
+
+## Hata Yönetimi
+
+- **İzin reddi:** Kamera/mikrofon izni verilmezse PrepScreen'de engelleyici bir ekran gösterilir, "Ayarlar'a git" yönlendirmesi sunulur; izin verilmeden mülakata geçilemez.
+- **Canlı STT bağlantı hatası:** `/ws/stt` kurulamazsa web'deki gibi batch `/api/stt` fallback'ine düşülür — aynı mantık mobile taşınır.
+- **Giriş hatası:** Token eksik/geçersiz veya kod yanlışsa LoginScreen'de açık hata mesajı gösterilir, tekrar denenebilir.
+- **Uygulama zorla kapatılırsa (force-quit):** Yeniden açıldığında SecureStore'daki `sessionId` ile `/api/interview/session` sorgulanır, backend'deki mevcut duruma göre doğru ekrana (consent/intro/questions/vb.) yönlendirilir — web'de sayfa yenilemenin karşılığı, ekstra bir "kaldığı yerden devam" mekanizması icat etmeye gerek yok.
+- **TTS çalınamazsa:** Web'deki davranışla tutarlı olarak sessiz geçilir; soru metni ekranda her zaman yazılı olarak da gösterilir (failsafe).
+- **Backend/sunucu hatası (5xx):** Kullanıcıya genel bir hata ekranı + "tekrar dene" seçeneği; kritik adımlarda (login, answer, finish-questions) otomatik kısa retry.
+
+## Test Stratejisi
+
+- **Birim testleri:** State machine/reducer, API client, WebSocket STT wrapper — native modüller mock'lanarak.
+- **Bileşen testleri:** Ekranlar `@testing-library/react-native` ile, backend mock'lanmış (ör. `msw`).
+- **Manuel cihaz testi (zorunlu):** Kamera/mikrofon/arka plan/deep-link/network kesintisi gibi davranışlar simülatörde güvenilir test edilemez — her sürüm öncesi gerçek cihazda golden path + kritik edge case'ler (izin reddi, arka plana atma, bağlantı kaybı) elle doğrulanır.
+- **E2E (opsiyonel, ileride):** Maestro/Detox ile login→consent→prep→intro→question→result kritik yolunun simülatörde otomatikleştirilmesi; kamera/mikrofon gerçek davranışı yine manuel teste bırakılır.
+
+## Kapsam Dışı
+
+- İK/admin mobil özellikleri (yalnızca aday tarafı).
+- Paylaşımlı çekirdek paket / web reposuna dokunma (Approach B).
+- WebView tabanlı hibrit yaklaşım (Approach C).
+- Push notification (bu tasarımda ele alınmadı, ihtiyaç netleşirse ayrı bir spec'e konu olabilir).
