@@ -1895,7 +1895,7 @@ test("starting recording begins segment 0 and uploads it once the clip resolves"
   await startSessionRecording("s1", ref as never);
 
   expect(ref.current!.recordAsync).toHaveBeenCalledWith(
-    expect.objectContaining({ maxDuration: 60 })
+    expect.objectContaining({ maxDuration: 60, quality: "480p" })
   );
   await ref.current!.recordAsync.mock.results[0].value;
 
@@ -1949,11 +1949,12 @@ import { createUploadQueue } from "./uploadQueue";
 import { uploadVideoChunk, finalizeVideoSegment } from "../api/client";
 
 interface CameraLike {
-  recordAsync: (opts: { maxDuration: number }) => Promise<{ uri: string }>;
+  recordAsync: (opts: { maxDuration: number; quality: string }) => Promise<{ uri: string }>;
   stopRecording: () => void;
 }
 
 const CLIP_MAX_DURATION_SEC = 60;
+const CLIP_QUALITY = "480p";
 
 let currentSessionId: string | null = null;
 let currentSegmentIndex = 0;
@@ -1971,7 +1972,7 @@ const queue = createUploadQueue(async (item: { sessionId: string; segmentIndex: 
 async function recordOneClip(): Promise<void> {
   if (!currentCameraRef?.current || !currentSessionId) return;
   const segmentIndex = currentSegmentIndex++;
-  inFlightClip = currentCameraRef.current.recordAsync({ maxDuration: CLIP_MAX_DURATION_SEC });
+  inFlightClip = currentCameraRef.current.recordAsync({ maxDuration: CLIP_MAX_DURATION_SEC, quality: CLIP_QUALITY });
   const { uri } = await inFlightClip;
   inFlightClip = null;
   queue.enqueue({ sessionId: currentSessionId, segmentIndex, uri });
@@ -2941,6 +2942,8 @@ git commit -m "feat: implement ResultScreen and finalize session cleanup"
 **Tip tutarlılığı:** `stopQuestionRecording(): Promise<{ transcript: string }>` imzası Task 10, 16, 17'de birebir aynı kullanılıyor; `AnswerPayload`'da `type` alanı hiç yok (Global Constraints ile tutarlı — kod soruları da sözlü gönderiliyor); `resumeSessionRecording`'in `cameraRef` parametresi alması gerektiği Task 13'ün kendi self-review'ında bulunup düzeltildi.
 
 **Mimari boşluk (self-review'da bulundu, düzeltildi):** İlk taslakta `CameraView`, yalnızca `PrepScreen`'de (o zamanki Task 14) render ediliyordu — Expo Router'ın `<Stack>`'i o rotadan ayrılınca bileşeni unmount edeceğinden, oturum kaydı `intro`'ya geçildiği an kesilirdi (web'in `SessionRecordingProvider`'ının "sayfa geçişleri boyunca hayatta kalır" davranışının eksik kalan mobil karşılığı). Düzeltme: yeni Task 14 (CameraHost), kamerayı `Stack`'in kardeşi olarak root layout'ta kalıcı hale getirdi; `PrepScreen` (Task 15) artık kendi `CameraView`'ini render etmiyor, paylaşılan `useCameraRef()`'i kullanıyor. Ayrıca `pauseSessionRecording`/`resumeSessionRecording`'in hiçbir ekrandan çağrılmadığı fark edildi — Task 13'e dahili bir `AppState` dinleyicisi eklenerek bu artık SessionRecorder'ın kendi sorumluluğu yapıldı, ekranların ayrıca wiring yapmasına gerek kalmadı.
+
+**Pre-flight tarama (dispatch öncesi bulundu, düzeltildi):** Global Constraints'te "video klip kalitesi 480p" şart koşulmuş ama Task 13'ün ilk kod bloğunda `recordAsync` çağrısına `quality` hiç geçilmiyordu — Global Constraint ile görev kodu arasında sessiz bir tutarsızlık. `CameraLike.recordAsync` imzasına ve çağrısına `quality: "480p"` eklendi, testteki `objectContaining` beklentisi de güncellendi.
 
 ## Manuel Cihaz Testi Kontrol Listesi (implementasyon bitince, her sürüm öncesi)
 
