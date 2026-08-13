@@ -20,7 +20,9 @@ test("full-size visible style while on /prep", () => {
       <CameraHost />
     </CameraRefProvider>
   );
-  expect(lastProps.style).toMatchObject({ width: "100%" });
+  expect(lastProps.style).toMatchObject({ position: "absolute", top: 0, left: 0, right: 0 });
+  expect(lastProps.mode).toBe("video");
+  expect(lastProps.videoQuality).toBe("480p");
 });
 
 test("hidden 1x1 style on any other route, e.g. /question", () => {
@@ -31,4 +33,6 @@ test("hidden 1x1 style on any other route, e.g. /question", () => {
     </CameraRefProvider>
   );
   expect(lastProps.style).toMatchObject({ width: 1, height: 1, opacity: 0 });
+  expect(lastProps.mode).toBe("video");
+  expect(lastProps.videoQuality).toBe("480p");
 });
