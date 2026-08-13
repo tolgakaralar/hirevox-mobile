@@ -33,9 +33,7 @@ test("starting recording begins segment 0 and uploads it once the clip resolves"
   const ref = fakeCameraRef();
   await startSessionRecording("s1", ref as never);
 
-  expect(ref.current!.recordAsync).toHaveBeenCalledWith(
-    expect.objectContaining({ maxDuration: 60, quality: "480p" })
-  );
+  expect(ref.current!.recordAsync).toHaveBeenCalledWith(expect.objectContaining({ maxDuration: 60 }));
   await ref.current!.recordAsync.mock.results[0].value;
 
   expect(uploadVideoChunk).toHaveBeenCalledWith("s1", 0, "file:///tmp/clip-0.mp4", "video/mp4");

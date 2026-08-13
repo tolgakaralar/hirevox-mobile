@@ -4,18 +4,21 @@ import { createUploadQueue } from "./uploadQueue";
 import { uploadVideoChunk, finalizeVideoSegment } from "../api/client";
 
 interface CameraLike {
-  recordAsync: (opts: { maxDuration: number; quality: string }) => Promise<{ uri: string }>;
+  // Matches expo-camera's real CameraView.recordAsync signature: no `quality`
+  // option exists there (video quality is controlled via the CameraView's
+  // `videoQuality` prop instead, see Task 14), and the result can be
+  // `undefined` (e.g. recording was interrupted before any data was captured).
+  recordAsync: (opts: { maxDuration: number }) => Promise<{ uri: string } | undefined>;
   stopRecording: () => void;
 }
 
 const CLIP_MAX_DURATION_SEC = 60;
-const CLIP_QUALITY = "480p";
 
 let currentSessionId: string | null = null;
 let currentSegmentIndex = 0;
-let currentCameraRef: RefObject<CameraLike> | null = null;
+let currentCameraRef: RefObject<CameraLike | null> | null = null;
 let looping = false;
-let inFlightClip: Promise<{ uri: string }> | null = null;
+let inFlightClip: Promise<{ uri: string } | undefined> | null = null;
 let appStateSubscription: NativeEventSubscription | null = null;
 let wasBackgrounded = false;
 // Bumped on every start/resume so a clip loop that outlives its session (e.g. one
@@ -32,10 +35,31 @@ const queue = createUploadQueue(async (item: { sessionId: string; segmentIndex: 
 async function recordOneClip(myGeneration: number): Promise<void> {
   if (!currentCameraRef?.current || !currentSessionId) return;
   const segmentIndex = currentSegmentIndex++;
-  inFlightClip = currentCameraRef.current.recordAsync({ maxDuration: CLIP_MAX_DURATION_SEC, quality: CLIP_QUALITY });
-  const { uri } = await inFlightClip;
-  inFlightClip = null;
-  queue.enqueue({ sessionId: currentSessionId, segmentIndex, uri });
+  // Captured up front: by the time this clip's promise settles, pause()/stop()
+  // or a brand-new session may already have reset the module-level session id
+  // (or a later clip may already be in flight). Using the captured values, and
+  // only clearing `inFlightClip` if it still points at *this* clip's promise,
+  // keeps a late-arriving settle from clobbering a newer clip's state or
+  // enqueuing under the wrong (possibly null) sessionId.
+  const mySessionId = currentSessionId;
+  const clip = currentCameraRef.current.recordAsync({ maxDuration: CLIP_MAX_DURATION_SEC });
+  inFlightClip = clip;
+  let uri: string | undefined;
+  try {
+    const result = await clip;
+    uri = result?.uri;
+  } catch {
+    // recordAsync can reject (camera interrupted, permission revoked, etc.).
+    // Treat it the same as an empty result: skip this clip and keep looping
+    // rather than leaving inFlightClip permanently rejected, which would make
+    // every future pause()/stop() throw when they await it.
+    uri = undefined;
+  } finally {
+    if (inFlightClip === clip) inFlightClip = null;
+  }
+  if (uri) {
+    queue.enqueue({ sessionId: mySessionId, segmentIndex, uri });
+  }
 
   // Defer the next clip to a macrotask instead of recursing straight through the
   // await chain. A direct recursive `await recordOneClip()` here never yields to
@@ -66,7 +90,10 @@ function onAppStateChange(nextState: AppStateStatus): void {
   }
 }
 
-export async function startSessionRecording(sessionId: string, cameraRef: RefObject<CameraLike>): Promise<void> {
+export async function startSessionRecording(
+  sessionId: string,
+  cameraRef: RefObject<CameraLike | null>
+): Promise<void> {
   currentSessionId = sessionId;
   currentCameraRef = cameraRef;
   currentSegmentIndex = 0;
@@ -80,10 +107,13 @@ export async function startSessionRecording(sessionId: string, cameraRef: RefObj
 export async function pauseSessionRecording(): Promise<void> {
   looping = false;
   currentCameraRef?.current?.stopRecording();
-  if (inFlightClip) await inFlightClip;
+  // recordOneClip already handles a rejected clip internally; this await is
+  // only here to block until the in-flight clip has settled, so swallow the
+  // rejection rather than letting it propagate out of pause().
+  if (inFlightClip) await inFlightClip.catch(() => undefined);
 }
 
-export async function resumeSessionRecording(cameraRef?: RefObject<CameraLike>): Promise<void> {
+export async function resumeSessionRecording(cameraRef?: RefObject<CameraLike | null>): Promise<void> {
   if (cameraRef) currentCameraRef = cameraRef;
   looping = true;
   generation++;
@@ -95,7 +125,9 @@ export async function stopSessionRecording(): Promise<void> {
   appStateSubscription?.remove();
   appStateSubscription = null;
   currentCameraRef?.current?.stopRecording();
-  if (inFlightClip) await inFlightClip;
+  // See pauseSessionRecording: don't let a rejected in-flight clip stop us
+  // from reaching queue.drain() and uploading everything already enqueued.
+  if (inFlightClip) await inFlightClip.catch(() => undefined);
   await queue.drain();
   currentSessionId = null;
   currentCameraRef = null;
