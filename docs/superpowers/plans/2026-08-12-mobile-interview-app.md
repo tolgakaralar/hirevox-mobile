@@ -2142,6 +2142,7 @@ export function CameraHost() {
     <CameraView
       ref={cameraRef}
       facing="front"
+      mode="video"
       videoQuality="480p"
       style={visible ? styles.visible : styles.hidden}
     />
@@ -2149,7 +2150,7 @@ export function CameraHost() {
 }
 
 const styles = StyleSheet.create({
-  visible: { width: "100%", aspectRatio: 3 / 4 },
+  visible: { position: "absolute", top: 0, left: 0, right: 0, aspectRatio: 3 / 4 },
   hidden: { position: "absolute", top: -1000, width: 1, height: 1, opacity: 0 },
 });
 ```
