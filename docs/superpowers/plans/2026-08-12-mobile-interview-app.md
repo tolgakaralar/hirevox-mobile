@@ -2138,7 +2138,14 @@ export function CameraHost() {
   const pathname = usePathname();
   const visible = pathname === "/prep";
 
-  return <CameraView ref={cameraRef} facing="front" style={visible ? styles.visible : styles.hidden} />;
+  return (
+    <CameraView
+      ref={cameraRef}
+      facing="front"
+      videoQuality="480p"
+      style={visible ? styles.visible : styles.hidden}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
