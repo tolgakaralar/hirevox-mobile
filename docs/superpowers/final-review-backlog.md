@@ -6,9 +6,9 @@ Intended as a temporary local backlog until this repo has a GitHub remote / `gh`
 
 ---
 
-## 1. Upload queue durability — partial
+## 1. Upload queue durability — not implemented
 
-Design spec requires file-system-backed retry (`expo-file-system`) with NetInfo-triggered `retry()`. The Critical-fix wave implemented this for the *forward* path (new uploads queue to disk, retry on reconnect). Still open: bootstrapping stale queue entries left on disk from a previous killed session back into the queue on next app launch. Low frequency (only matters if the app is killed while segments are still pending), but real data-loss-shaped gap.
+Design spec requires file-system-backed retry (`expo-file-system`) with NetInfo-triggered `retry()`. As shipped, `uploadQueue.ts` is purely in-memory: `expo-file-system` is an installed dependency with zero imports, and `retry()` has no call sites. The Critical-fix wave (2026-08-13) did NOT touch this — it was scoped to the 5 Critical findings only; this item was deliberately deferred here, not implemented. Needs: (a) failed/pending queue items persisted to disk as they're enqueued, (b) a NetInfo reconnect listener wired to `retry()`, (c) bootstrapping stale entries left on disk from a previously-killed session back into the queue on next app launch, (d) `result.tsx` should not clear `sessionId` while `pendingCount() > 0` without at least a bounded wait/retry. Real data-loss-shaped gap — no video segment currently survives an app kill while upload is pending.
 
 **File:** `src/recording/uploadQueue.ts`, `app/_layout.tsx` (bootstrap point)
 
