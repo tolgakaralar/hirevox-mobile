@@ -7,10 +7,24 @@ import { startSessionRecording } from "../../src/recording/sessionRecorder";
 
 jest.mock("../../src/recording/sessionRecorder");
 jest.mock("expo-router", () => ({ useRouter: () => ({ replace: jest.fn() }) }));
-jest.mock("expo-camera", () => ({
-  useCameraPermissions: () => [{ granted: false }, jest.fn().mockResolvedValue({ granted: true })],
-  useMicrophonePermissions: () => [{ granted: false }, jest.fn().mockResolvedValue({ granted: true })],
-}));
+// The real useCameraPermissions/useMicrophonePermissions hooks are stateful:
+// calling requestPermission() updates the hook's own state and triggers a
+// re-render with granted: true (see expo-modules-core's PermissionsHook).
+// Mirror that here instead of a stateless mock, so PrepScreen's
+// `cameraPerm?.granted && micPerm?.granted` check is exercised for real.
+jest.mock("expo-camera", () => {
+  const { useState } = require("react");
+  const hook = () => {
+    const [permission, setPermission] = useState({ granted: false });
+    const request = async () => {
+      const granted = { granted: true };
+      setPermission(granted);
+      return granted;
+    };
+    return [permission, request];
+  };
+  return { useCameraPermissions: hook, useMicrophonePermissions: hook };
+});
 
 // PrepScreen guards session start on state.sessionId (same convention as
 // consent.tsx). The real InterviewProvider starts with sessionId: null, so

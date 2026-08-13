@@ -14,14 +14,12 @@ export default function PrepScreen() {
   const [micPerm, requestMicPerm] = useMicrophonePermissions();
   const cameraRef = useCameraRef();
   const [starting, setStarting] = useState(false);
-  const [permissionsGranted, setPermissionsGranted] = useState(false);
 
-  const granted = permissionsGranted || (cameraPerm?.granted && micPerm?.granted);
+  const granted = cameraPerm?.granted && micPerm?.granted;
 
   const handleRequestPermissions = async () => {
-    const camResult = await requestCameraPerm();
-    const micResult = await requestMicPerm();
-    setPermissionsGranted(!!(camResult?.granted && micResult?.granted));
+    await requestCameraPerm();
+    await requestMicPerm();
   };
 
   const handleStart = async () => {
