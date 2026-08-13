@@ -4,6 +4,8 @@ import { InterviewProvider, useInterview } from "../src/state/InterviewContext";
 import { loadSessionId } from "../src/storage/session";
 import { getSession } from "../src/api/client";
 import type { InterviewPage } from "../src/state/interviewReducer";
+import { CameraRefProvider } from "../src/recording/CameraRefContext";
+import { CameraHost } from "../src/recording/CameraHost";
 
 const STATUS_TO_PAGE: Record<string, InterviewPage> = {
   created: "consent",
@@ -47,9 +49,12 @@ function ResumeGate({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   return (
     <InterviewProvider>
-      <ResumeGate>
-        <Stack screenOptions={{ headerShown: false }} />
-      </ResumeGate>
+      <CameraRefProvider>
+        <ResumeGate>
+          <Stack screenOptions={{ headerShown: false }} />
+          <CameraHost />
+        </ResumeGate>
+      </CameraRefProvider>
     </InterviewProvider>
   );
 }

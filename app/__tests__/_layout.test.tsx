@@ -6,7 +6,12 @@ import { useInterview } from "../../src/state/InterviewContext";
 
 jest.mock("../../src/storage/session");
 jest.mock("../../src/api/client");
-jest.mock("expo-router", () => ({ Stack: () => null, useRouter: () => ({ replace: jest.fn() }) }));
+jest.mock("expo-router", () => ({
+  Stack: () => null,
+  useRouter: () => ({ replace: jest.fn() }),
+  usePathname: () => "/",
+}));
+jest.mock("expo-camera", () => ({ CameraView: () => null }));
 
 function Probe() {
   const { state } = useInterview();
