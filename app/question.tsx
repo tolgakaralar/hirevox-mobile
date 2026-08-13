@@ -26,6 +26,16 @@ export default function QuestionScreen() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const loadingRef = useRef(false);
+  // stopQuestionRecording() tears down the recorder (questionRecorder.ts
+  // resets mode/socket/recording to null). If submitAnswer rejects and the
+  // user retries, calling stopQuestionRecording() again would hit that
+  // torn-down recorder and return an empty transcript — silently replacing
+  // the real answer with the "(Ses alınamadı)" fallback. Caching the result
+  // here means a retry resubmits the transcript we already captured instead
+  // of re-stopping a dead recorder. Reset to null whenever a new question's
+  // recording starts, since QuestionScreen stays mounted across the whole
+  // question loop and each question needs its own capture.
+  const lastTranscriptRef = useRef<string | null>(null);
 
   const loadNextQuestion = async () => {
     if (loadingRef.current || !state.sessionId) return;
@@ -51,6 +61,7 @@ export default function QuestionScreen() {
       }
 
       setPhase("recording");
+      lastTranscriptRef.current = null;
       await startQuestionRecording(state.sessionId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bir hata oluştu");
@@ -64,16 +75,20 @@ export default function QuestionScreen() {
     setPhase("processing");
 
     try {
-      const { transcript } = await stopQuestionRecording();
+      if (lastTranscriptRef.current === null) {
+        const { transcript } = await stopQuestionRecording();
+        lastTranscriptRef.current = transcript || "(Ses alınamadı)";
+      }
       await submitAnswer({
         sessionId: state.sessionId,
         questionId: question.id,
         phase: "main",
         topic: question.topic,
         askedText: question.text,
-        transcript: transcript || "(Ses alınamadı)",
+        transcript: lastTranscriptRef.current,
         difficulty: question.difficulty,
       });
+      lastTranscriptRef.current = null;
       await loadNextQuestion();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bir hata oluştu");

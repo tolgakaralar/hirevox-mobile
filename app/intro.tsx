@@ -17,6 +17,14 @@ export default function IntroScreen() {
   const [phase, setPhase] = useState<"speaking" | "recording" | "processing">("speaking");
   const [error, setError] = useState<string | null>(null);
   const finishingRef = useRef(false);
+  // stopQuestionRecording() tears down the recorder (questionRecorder.ts
+  // resets mode/socket/recording to null). If submitAnswer rejects and the
+  // user retries, calling stopQuestionRecording() again would hit that
+  // torn-down recorder and return an empty transcript — silently replacing
+  // the real answer with the "(Ses alınamadı)" fallback. Caching the result
+  // here means a retry resubmits the transcript we already captured instead
+  // of re-stopping a dead recorder.
+  const lastTranscriptRef = useRef<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -37,12 +45,15 @@ export default function IntroScreen() {
     setPhase("processing");
 
     try {
-      const { transcript } = await stopQuestionRecording();
+      if (lastTranscriptRef.current === null) {
+        const { transcript } = await stopQuestionRecording();
+        lastTranscriptRef.current = transcript || "(Ses alınamadı)";
+      }
       await submitAnswer({
         sessionId: state.sessionId!,
         phase: "intro",
         askedText: "Kendinizi kısaca tanıtın",
-        transcript: transcript || "(Ses alınamadı)",
+        transcript: lastTranscriptRef.current,
       });
       await playRemoteAudio("giris-tesekkur.mp3");
       await introDone(state.sessionId!);

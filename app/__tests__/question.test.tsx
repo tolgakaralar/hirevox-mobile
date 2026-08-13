@@ -76,6 +76,12 @@ function renderQuestion() {
 }
 
 beforeEach(() => {
+  // Automocked modules keep their call history across tests within this
+  // file (jest.config.js has no clearMocks/resetMocks set), which the
+  // original tests never noticed since they only asserted with
+  // toHaveBeenCalledWith. The retry regression test below asserts on call
+  // *counts*, so history from earlier tests needs to be cleared first.
+  jest.clearAllMocks();
   jest.mocked(playRemoteAudio).mockResolvedValue();
   jest.mocked(stopQuestionRecording).mockResolvedValue({ transcript: "cevabım budur" });
   jest.mocked(submitAnswer).mockResolvedValue({ saved: true });
@@ -122,4 +128,44 @@ test("done:true finishes questions and navigates to evaluating", async () => {
   renderQuestion();
 
   await waitFor(() => expect(finishQuestions).toHaveBeenCalled());
+});
+
+// CRITICAL 4: stopQuestionRecording() tears down the recorder (mode/socket/
+// recording all go back to null in questionRecorder.ts). If submitAnswer
+// rejects (e.g. a network blip) and the user retries, calling
+// stopQuestionRecording() a second time hits that torn-down recorder and
+// resolves with {transcript: ""} — silently replacing the user's real
+// answer with the "(Ses alınamadı)" fallback on the retried submission.
+test("submitAnswer network error then retry resends the real transcript, not the fallback", async () => {
+  jest.mocked(getNextQuestion).mockResolvedValueOnce({
+    done: false,
+    question: {
+      id: 1,
+      topic: "JavaScript",
+      text: "Closure nedir, sözlü açıklayın",
+      audioFile: null,
+      difficulty: 1,
+      type: "verbal",
+      language: null,
+      starterCode: null,
+    },
+    topicNumber: 1,
+    totalTopics: 6,
+  });
+  jest.mocked(submitAnswer).mockRejectedValueOnce(new Error("Ağ hatası")).mockResolvedValueOnce({ saved: true });
+
+  renderQuestion();
+
+  await waitFor(() => expect(startQuestionRecording).toHaveBeenCalled());
+  fireEvent.press(screen.getByText("Cevabı Gönder"));
+
+  await waitFor(() => expect(submitAnswer).toHaveBeenCalledTimes(1));
+  await waitFor(() => screen.getByText("Cevabı Gönder"));
+
+  fireEvent.press(screen.getByText("Cevabı Gönder"));
+
+  await waitFor(() => expect(submitAnswer).toHaveBeenCalledTimes(2));
+  const secondCallArgs = jest.mocked(submitAnswer).mock.calls[1][0];
+  expect(secondCallArgs).toMatchObject({ questionId: 1, transcript: "cevabım budur" });
+  expect(stopQuestionRecording).toHaveBeenCalledTimes(1);
 });
