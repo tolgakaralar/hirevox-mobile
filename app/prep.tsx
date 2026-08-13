@@ -9,7 +9,7 @@ import { startSessionRecording } from "../src/recording/sessionRecorder";
 
 export default function PrepScreen() {
   const router = useRouter();
-  const { state } = useInterview();
+  const { state, dispatch } = useInterview();
   const [cameraPerm, requestCameraPerm] = useCameraPermissions();
   const [micPerm, requestMicPerm] = useMicrophonePermissions();
   const cameraRef = useCameraRef();
@@ -27,7 +27,14 @@ export default function PrepScreen() {
     setStarting(true);
     await activateKeepAwakeAsync();
     await startSessionRecording(state.sessionId, cameraRef);
-    router.replace("/intro");
+    // On a fresh interview resumeTarget is null and we go to /intro as
+    // before. On a resumed session (force-quit mid-recording, see
+    // _layout.tsx's ResumeGate) resumeTarget holds the page the user was
+    // actually on, so recording restarts here but the user continues where
+    // they left off instead of restarting the intro.
+    const target = state.resumeTarget ?? "intro";
+    dispatch({ type: "SET_RESUME_TARGET", target: null });
+    router.replace(`/${target}`);
   };
 
   if (!granted) {
