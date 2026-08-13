@@ -1,11 +1,18 @@
 import { useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import { activateKeepAwakeAsync } from "expo-keep-awake";
 import { useInterview } from "../src/state/InterviewContext";
 import { useCameraRef } from "../src/recording/CameraRefContext";
 import { startSessionRecording } from "../src/recording/sessionRecorder";
+
+// CameraHost's "/prep" preview band is full-width with aspectRatio 3/4
+// (see src/recording/CameraHost.tsx), so it's screenWidth * (4/3) tall.
+// It renders as a sibling positioned absolutely on top of this screen, so
+// content here must be pushed below it or it sits underneath the preview
+// and becomes untappable (including the "Mülakata Başla" button).
+const PREVIEW_HEIGHT = Dimensions.get("window").width * (4 / 3);
 
 export default function PrepScreen() {
   const router = useRouter();
@@ -39,7 +46,7 @@ export default function PrepScreen() {
 
   if (!granted) {
     return (
-      <View>
+      <View testID="prep-content" style={styles.content}>
         <Text>Görüşmeye Hazırlık</Text>
         <Text>Kamera ve mikrofon erişimi gerekli. İzin vermeden mülakata devam edilemez.</Text>
         <Pressable onPress={handleRequestPermissions}>
@@ -50,7 +57,7 @@ export default function PrepScreen() {
   }
 
   return (
-    <View>
+    <View testID="prep-content" style={styles.content}>
       <Text>Görüşmeye Hazırlık</Text>
       <Text>Aşağıda kamera önizlemenizi görüyorsunuz — bu önizleme, kalıcı olarak arka planda çalışan CameraHost bileşenindendir (bkz. Task 14).</Text>
       <Pressable onPress={handleStart} disabled={starting}>
@@ -59,3 +66,7 @@ export default function PrepScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  content: { paddingTop: PREVIEW_HEIGHT },
+});

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Dimensions } from "react-native";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
 import PrepScreen from "../prep";
 import { InterviewProvider, useInterview } from "../../src/state/InterviewContext";
@@ -82,6 +83,30 @@ beforeEach(() => {
 test("shows permission blocked message before permissions are granted", () => {
   renderPrep();
   expect(screen.getByText(/Kamera ve mikrofon erişimi gerekli/)).toBeTruthy();
+});
+
+// CRITICAL 5: CameraHost's "/prep" preview band is position:absolute,
+// full-width, aspectRatio 3/4 (~screenWidth * 4/3 tall) and renders as a
+// sibling after PrepScreen in _layout.tsx's tree, so it visually sits on
+// top of PrepScreen's content — including the "Mülakata Başla" button,
+// making it untappable. PrepScreen must reserve that much space at the top
+// so its content (and the button) renders below the preview instead of
+// underneath it.
+test("reserves space for the camera preview band so content isn't covered, before permissions are granted", () => {
+  renderPrep();
+  const previewHeight = Dimensions.get("window").width * (4 / 3);
+  const content = screen.getByTestId("prep-content");
+  expect(content.props.style).toMatchObject({ paddingTop: previewHeight });
+});
+
+test("reserves space for the camera preview band so the start button isn't covered, after permissions are granted", async () => {
+  renderPrep();
+  fireEvent.press(screen.getByText("İzin Ver ve Devam Et"));
+  await waitFor(() => expect(screen.getByText("Mülakata Başla")).toBeTruthy());
+
+  const previewHeight = Dimensions.get("window").width * (4 / 3);
+  const content = screen.getByTestId("prep-content");
+  expect(content.props.style).toMatchObject({ paddingTop: previewHeight });
 });
 
 test("pressing start requests permissions then begins session recording, then continues to /intro by default", async () => {
