@@ -2,7 +2,6 @@ import { startQuestionRecording, stopQuestionRecording } from "../questionRecord
 import { openSttSocket, sendAudioChunk, finishSttSocket } from "../sttSocket";
 import { transcribeAudioFile } from "../../api/client";
 import LiveAudioStream from "react-native-live-audio-stream";
-import { Audio } from "expo-av";
 
 jest.mock("../sttSocket");
 jest.mock("../../api/client");
@@ -12,16 +11,16 @@ jest.mock("react-native-live-audio-stream", () => ({
   stop: jest.fn(),
   on: jest.fn(),
 }));
-jest.mock("expo-av", () => ({
-  Audio: {
-    setAudioModeAsync: jest.fn(),
-    Recording: jest.fn().mockImplementation(() => ({
+jest.mock("expo-audio", () => ({
+  setAudioModeAsync: jest.fn(),
+  RecordingPresets: { HIGH_QUALITY: {} },
+  AudioModule: {
+    AudioRecorder: jest.fn().mockImplementation(() => ({
       prepareToRecordAsync: jest.fn(),
-      startAsync: jest.fn(),
-      stopAndUnloadAsync: jest.fn(),
-      getURI: jest.fn(() => "file:///tmp/rec.m4a"),
+      record: jest.fn(),
+      stop: jest.fn(),
+      uri: "file:///tmp/rec.m4a",
     })),
-    RecordingOptionsPresets: { HIGH_QUALITY: {} },
   },
 }));
 
@@ -49,7 +48,7 @@ test("live path: stop sends final stop message and returns its transcript", asyn
   expect(result).toEqual({ transcript: "canlı transkript" });
 });
 
-test("fallback path: batch-records with expo-av when socket fails to open", async () => {
+test("fallback path: batch-records with expo-audio when socket fails to open", async () => {
   (openSttSocket as jest.Mock).mockResolvedValue(null);
   (transcribeAudioFile as jest.Mock).mockResolvedValue({ transcript: "batch transkript" });
 

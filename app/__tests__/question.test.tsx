@@ -11,13 +11,13 @@ jest.mock("../../src/recording/questionRecorder");
 jest.mock("../../src/audio/playRemoteAudio");
 jest.mock("../../src/hooks/useNetworkTolerance", () => ({ useNetworkTolerance: jest.fn() }));
 jest.mock("expo-router", () => ({ useRouter: () => ({ replace: jest.fn() }) }));
-// questionRecorder.ts and playRemoteAudio.ts both import expo-av, and
+// questionRecorder.ts and playRemoteAudio.ts both import expo-audio, and
 // questionRecorder.ts also imports react-native-live-audio-stream.
 // Automocking them (no factory above) still requires the real modules first
 // to infer their shape, and neither has a jest-expo native mock (see
 // src/recording/__tests__/questionRecorder.test.ts and app/__tests__/intro.test.tsx,
 // which mock both the same way), so without this the requires above crash —
-// first with "Cannot find native module 'ExponentAV'", then with a
+// first with "Cannot find native module 'ExpoAudio'", then with a
 // NativeEventEmitter invariant violation from react-native-live-audio-stream.
 jest.mock("react-native-live-audio-stream", () => ({
   init: jest.fn(),
@@ -25,18 +25,23 @@ jest.mock("react-native-live-audio-stream", () => ({
   stop: jest.fn(),
   on: jest.fn(),
 }));
-jest.mock("expo-av", () => ({
-  Audio: {
-    setAudioModeAsync: jest.fn(),
-    Recording: jest.fn().mockImplementation(() => ({
+jest.mock("expo-audio", () => ({
+  setAudioModeAsync: jest.fn(),
+  RecordingPresets: { HIGH_QUALITY: {} },
+  AudioModule: {
+    AudioRecorder: jest.fn().mockImplementation(() => ({
       prepareToRecordAsync: jest.fn(),
-      startAsync: jest.fn(),
-      stopAndUnloadAsync: jest.fn(),
-      getURI: jest.fn(() => "file:///tmp/rec.m4a"),
+      record: jest.fn(),
+      stop: jest.fn(),
+      uri: "file:///tmp/rec.m4a",
     })),
-    RecordingOptionsPresets: { HIGH_QUALITY: {} },
-    Sound: { createAsync: jest.fn() },
   },
+  createAudioPlayer: jest.fn().mockImplementation(() => ({
+    play: jest.fn(),
+    pause: jest.fn(),
+    remove: jest.fn(),
+    addListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
+  })),
 }));
 
 // QuestionScreen guards loadNextQuestion on state.sessionId (same convention

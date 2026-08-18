@@ -1,29 +1,31 @@
-import { Audio } from "expo-av";
+import { createAudioPlayer } from "expo-audio";
+import type { AudioPlayer, AudioStatus } from "expo-audio";
 
 const BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
-let currentSound: Audio.Sound | null = null;
+let currentPlayer: AudioPlayer | null = null;
 
 export async function playRemoteAudio(fileName: string): Promise<void> {
-  if (currentSound) {
-    await currentSound.unloadAsync();
-    currentSound = null;
+  if (currentPlayer) {
+    currentPlayer.remove();
+    currentPlayer = null;
   }
-  const { sound } = await Audio.Sound.createAsync({ uri: `${BASE}/sesler/${fileName}` });
-  currentSound = sound;
+  const player = createAudioPlayer(`${BASE}/sesler/${fileName}`);
+  currentPlayer = player;
   return new Promise((resolve) => {
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if ("didJustFinish" in status && status.didJustFinish) {
+    const subscription = player.addListener("playbackStatusUpdate", (status: AudioStatus) => {
+      if (status.didJustFinish) {
+        subscription.remove();
         resolve();
       }
     });
-    sound.playAsync();
+    player.play();
   });
 }
 
 export async function stopRemoteAudio(): Promise<void> {
-  if (currentSound) {
-    await currentSound.stopAsync();
-    await currentSound.unloadAsync();
-    currentSound = null;
+  if (currentPlayer) {
+    currentPlayer.pause();
+    currentPlayer.remove();
+    currentPlayer = null;
   }
 }

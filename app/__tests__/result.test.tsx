@@ -9,15 +9,18 @@ import { deactivateKeepAwake } from "expo-keep-awake";
 jest.mock("../../src/recording/sessionRecorder");
 jest.mock("../../src/audio/playRemoteAudio");
 jest.mock("../../src/storage/session");
-// playRemoteAudio.ts imports expo-av. Automocking it (no factory above) still
-// requires the real module first to infer its shape, and it has no
+// playRemoteAudio.ts imports expo-audio. Automocking it (no factory above)
+// still requires the real module first to infer its shape, and it has no
 // jest-expo native mock (see app/__tests__/intro.test.tsx, which mocks it
 // the same way), so without this the require above crashes with
-// "Cannot find native module 'ExponentAV'".
-jest.mock("expo-av", () => ({
-  Audio: {
-    Sound: { createAsync: jest.fn() },
-  },
+// "Cannot find native module 'ExpoAudio'".
+jest.mock("expo-audio", () => ({
+  createAudioPlayer: jest.fn().mockImplementation(() => ({
+    play: jest.fn(),
+    pause: jest.fn(),
+    remove: jest.fn(),
+    addListener: jest.fn().mockReturnValue({ remove: jest.fn() }),
+  })),
 }));
 // Mocked (rather than left as the real module, which works fine unmocked —
 // see app/prep.tsx's activateKeepAwakeAsync usage, untouched in

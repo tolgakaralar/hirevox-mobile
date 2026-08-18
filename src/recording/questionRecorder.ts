@@ -1,4 +1,5 @@
-import { Audio } from "expo-av";
+import { AudioModule, RecordingPresets, setAudioModeAsync } from "expo-audio";
+import type { AudioRecorder } from "expo-audio";
 import LiveAudioStream from "react-native-live-audio-stream";
 import { toByteArray } from "base64-js";
 import { openSttSocket, sendAudioChunk, finishSttSocket } from "./sttSocket";
@@ -8,10 +9,10 @@ type Mode = "live" | "batch" | null;
 
 let mode: Mode = null;
 let socket: WebSocket | null = null;
-let recording: Audio.Recording | null = null;
+let recorder: AudioRecorder | null = null;
 
 export async function startQuestionRecording(sessionId: string): Promise<void> {
-  await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+  await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
 
   socket = await openSttSocket(sessionId);
 
@@ -34,9 +35,9 @@ export async function startQuestionRecording(sessionId: string): Promise<void> {
   }
 
   mode = "batch";
-  recording = new Audio.Recording();
-  await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-  await recording.startAsync();
+  recorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
+  await recorder.prepareToRecordAsync();
+  recorder.record();
 }
 
 export async function stopQuestionRecording(): Promise<{ transcript: string }> {
@@ -48,10 +49,10 @@ export async function stopQuestionRecording(): Promise<{ transcript: string }> {
     return result;
   }
 
-  if (mode === "batch" && recording) {
-    await recording.stopAndUnloadAsync();
-    const uri = recording.getURI();
-    recording = null;
+  if (mode === "batch" && recorder) {
+    await recorder.stop();
+    const uri = recorder.uri;
+    recorder = null;
     mode = null;
     if (!uri) return { transcript: "" };
     return transcribeAudioFile(uri, "audio/m4a");
