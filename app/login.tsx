@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  StyleSheet,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useInterview } from "../src/state/InterviewContext";
@@ -35,42 +45,56 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
-      <View style={styles.card}>
-        <OrionLogo />
-        <Text style={styles.title}>HireVox</Text>
-        <Text style={styles.subtitle}>Online Mülakat Platformu</Text>
-        <Text style={styles.description}>Hoş geldiniz! Mülakata başlamak için size verilen erişim kodunu girin.</Text>
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-        <TextInput
-          style={styles.input}
-          placeholder="Erişim kodunu girin"
-          placeholderTextColor={colors.muted}
-          value={code}
-          onChangeText={(text) => {
-            setCode(text);
-            setError(null);
-          }}
-          secureTextEntry
-          editable={!loading}
-        />
-        <Pressable
-          style={[styles.button, { backgroundColor: canSubmit ? colors.primary : colors.primaryDisabledBg }]}
-          onPress={handleSubmit}
-          disabled={!canSubmit}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {loading ? (
-            <ActivityIndicator color={colors.primaryDisabledFg} />
-          ) : (
-            <Text style={[styles.buttonText, { color: canSubmit ? "#fff" : colors.primaryDisabledFg }]}>
-              Mülakata Başla
+          <View style={styles.card}>
+            <OrionLogo />
+            <Text style={styles.title}>HireVox</Text>
+            <Text style={styles.subtitle}>Online Mülakat Platformu</Text>
+            <Text style={styles.description}>
+              Hoş geldiniz! Mülakata başlamak için size verilen erişim kodunu girin.
             </Text>
-          )}
-        </Pressable>
-      </View>
+            {error && (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+            <TextInput
+              style={styles.input}
+              placeholder="Erişim kodunu girin"
+              placeholderTextColor={colors.muted}
+              value={code}
+              onChangeText={(text) => {
+                setCode(text);
+                setError(null);
+              }}
+              secureTextEntry
+              editable={!loading}
+            />
+            <Pressable
+              style={[styles.button, { backgroundColor: canSubmit ? colors.primary : colors.primaryDisabledBg }]}
+              onPress={handleSubmit}
+              disabled={!canSubmit}
+            >
+              {loading ? (
+                <ActivityIndicator color={colors.primaryDisabledFg} />
+              ) : (
+                <Text style={[styles.buttonText, { color: canSubmit ? "#fff" : colors.primaryDisabledFg }]}>
+                  Mülakata Başla
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -82,8 +106,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.screenPaddingTopLarge,
     paddingHorizontal: spacing.screenPaddingHorizontal,
     paddingBottom: spacing.screenPaddingBottom,
-    justifyContent: "center",
   },
+  flex: { flex: 1 },
+  scrollContent: { flexGrow: 1, justifyContent: "center" },
   card: {
     ...cardStyle,
     paddingTop: 30,

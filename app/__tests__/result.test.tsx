@@ -79,7 +79,29 @@ test('pressing "Bitti" returns to the login screen', async () => {
     </InterviewProvider>
   );
 
+  await waitFor(() => expect(screen.getByText("Bitti")).toBeEnabled());
   fireEvent.press(screen.getByText("Bitti"));
 
   expect(mockReplace).toHaveBeenCalledWith("/login");
+});
+
+test('"Bitti" is disabled until cleanup (audio + session recording + session clear) finishes', async () => {
+  let resolveStop: () => void = () => {};
+  jest.mocked(playRemoteAudio).mockResolvedValue();
+  jest.mocked(stopSessionRecording).mockReturnValue(
+    new Promise((resolve) => {
+      resolveStop = () => resolve();
+    })
+  );
+
+  render(
+    <InterviewProvider>
+      <ResultScreen />
+    </InterviewProvider>
+  );
+
+  expect(screen.getByText("Bitti")).toBeDisabled();
+
+  resolveStop();
+  await waitFor(() => expect(screen.getByText("Bitti")).toBeEnabled());
 });
