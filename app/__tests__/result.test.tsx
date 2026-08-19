@@ -1,4 +1,4 @@
-import { render, waitFor, screen } from "@testing-library/react-native";
+import { render, waitFor, screen, fireEvent } from "@testing-library/react-native";
 import ResultScreen from "../result";
 import { InterviewProvider } from "../../src/state/InterviewContext";
 import { stopSessionRecording } from "../../src/recording/sessionRecorder";
@@ -9,6 +9,8 @@ import { deactivateKeepAwake } from "expo-keep-awake";
 jest.mock("../../src/recording/sessionRecorder");
 jest.mock("../../src/audio/playRemoteAudio");
 jest.mock("../../src/storage/session");
+const mockReplace = jest.fn();
+jest.mock("expo-router", () => ({ useRouter: () => ({ replace: mockReplace }) }));
 // playRemoteAudio.ts imports expo-audio. Automocking it (no factory above)
 // still requires the real module first to infer its shape, and it has no
 // jest-expo native mock (see app/__tests__/intro.test.tsx, which mocks it
@@ -65,4 +67,19 @@ test("still clears the session and deactivates keep-awake when earlier cleanup s
 
   await waitFor(() => expect(clearSessionId).toHaveBeenCalled());
   await waitFor(() => expect(deactivateKeepAwake).toHaveBeenCalled());
+});
+
+test('pressing "Bitti" returns to the login screen', async () => {
+  jest.mocked(playRemoteAudio).mockResolvedValue();
+  jest.mocked(stopSessionRecording).mockResolvedValue();
+
+  render(
+    <InterviewProvider>
+      <ResultScreen />
+    </InterviewProvider>
+  );
+
+  fireEvent.press(screen.getByText("Bitti"));
+
+  expect(mockReplace).toHaveBeenCalledWith("/login");
 });
