@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react-native";
 import QuestionScreen from "../question";
 import { InterviewProvider, useInterview } from "../../src/state/InterviewContext";
 import { getNextQuestion, submitAnswer, finishQuestions } from "../../src/api/client";
@@ -124,6 +124,43 @@ test("loads first question, records answer, and submits it always as verbal — 
   );
   const call = jest.mocked(submitAnswer).mock.calls[0][0];
   expect(call).not.toHaveProperty("type", "code");
+});
+
+test("elapsed counts up and the 2-minute countdown counts down together, once recording", async () => {
+  jest.mocked(getNextQuestion).mockResolvedValueOnce({
+    done: false,
+    question: {
+      id: 1,
+      topic: "JavaScript",
+      text: "Closure nedir, sözlü açıklayın",
+      audioFile: null,
+      difficulty: 1,
+      type: "verbal",
+      language: null,
+      starterCode: null,
+    },
+    topicNumber: 1,
+    totalTopics: 6,
+  });
+
+  jest.useFakeTimers({ advanceTimers: true });
+  render(
+    <InterviewProvider>
+      <RenderAfterSeed />
+    </InterviewProvider>
+  );
+
+  await waitFor(() => expect(startQuestionRecording).toHaveBeenCalled());
+  expect(screen.getByText("02:00")).toBeTruthy();
+  expect(screen.getByText("Geçen süre: 0:00")).toBeTruthy();
+
+  act(() => {
+    jest.advanceTimersByTime(3000);
+  });
+  expect(screen.getByText("01:57")).toBeTruthy();
+  expect(screen.getByText("Geçen süre: 0:03")).toBeTruthy();
+
+  jest.useRealTimers();
 });
 
 test("done:true finishes questions and navigates to evaluating", async () => {
