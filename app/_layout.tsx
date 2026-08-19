@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Stack, useRouter } from "expo-router";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { InterviewProvider, useInterview } from "../src/state/InterviewContext";
 import { loadSessionId } from "../src/storage/session";
 import { getSession } from "../src/api/client";
@@ -66,13 +67,15 @@ function ResumeGate({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   return (
-    <InterviewProvider>
-      <CameraRefProvider>
-        <ResumeGate>
-          <Stack screenOptions={{ headerShown: false }} />
-          <CameraHost />
-        </ResumeGate>
-      </CameraRefProvider>
-    </InterviewProvider>
+    <SafeAreaProvider>
+      <InterviewProvider>
+        <CameraRefProvider>
+          <ResumeGate>
+            <Stack screenOptions={{ headerShown: false }} />
+            <CameraHost />
+          </ResumeGate>
+        </CameraRefProvider>
+      </InterviewProvider>
+    </SafeAreaProvider>
   );
 }

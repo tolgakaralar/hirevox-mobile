@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useInterview } from "../src/state/InterviewContext";
 import { startQuestionRecording, stopQuestionRecording } from "../src/recording/questionRecorder";
@@ -66,17 +67,24 @@ export default function IntroScreen() {
   };
 
   return (
-    <View>
-      <Text>Kendinizi Tanıtın</Text>
-      {phase === "speaking" && <Text>{INTRO_TEXT}</Text>}
-      {phase === "recording" && <Text>Kayıt yapılıyor...</Text>}
-      {phase === "processing" && <Text>İşleniyor...</Text>}
-      {error && <Text>{error}</Text>}
-      {phase === "recording" && (
-        <Pressable onPress={handleFinish}>
-          <Text>Konuşmayı Bitir</Text>
-        </Pressable>
-      )}
-    </View>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <View style={styles.content}>
+        <Text>Kendinizi Tanıtın</Text>
+        {phase === "speaking" && <Text>{INTRO_TEXT}</Text>}
+        {phase === "recording" && <Text>Kayıt yapılıyor...</Text>}
+        {phase === "processing" && <Text>İşleniyor...</Text>}
+        {error && <Text>{error}</Text>}
+        {phase === "recording" && (
+          <Pressable onPress={handleFinish}>
+            <Text>Konuşmayı Bitir</Text>
+          </Pressable>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+  content: { flex: 1, padding: 24 },
+});

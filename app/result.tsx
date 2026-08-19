@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { View, Text } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { deactivateKeepAwake } from "expo-keep-awake";
 import { playRemoteAudio } from "../src/audio/playRemoteAudio";
 import { stopSessionRecording } from "../src/recording/sessionRecorder";
@@ -36,9 +37,16 @@ export default function ResultScreen() {
   }, []);
 
   return (
-    <View>
-      <Text>Mülakat Tamamlandı</Text>
-      <Text>Katılımınız için teşekkür ederiz.</Text>
-    </View>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <View style={styles.content}>
+        <Text>Mülakat Tamamlandı</Text>
+        <Text>Katılımınız için teşekkür ederiz.</Text>
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+  content: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
+});

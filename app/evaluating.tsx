@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, ActivityIndicator } from "react-native";
+import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useInterview } from "../src/state/InterviewContext";
 import { evaluateSession } from "../src/api/client";
@@ -26,11 +27,18 @@ export default function EvaluatingScreen() {
   }, []);
 
   return (
-    <View>
-      <Text>Mülakat Tamamlanıyor</Text>
-      <Text>Cevaplarınız işleniyor...</Text>
-      <ActivityIndicator />
-      {error && <Text>{error}</Text>}
-    </View>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <View style={styles.content}>
+        <Text>Mülakat Tamamlanıyor</Text>
+        <Text>Cevaplarınız işleniyor...</Text>
+        <ActivityIndicator />
+        {error && <Text>{error}</Text>}
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+  content: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
+});

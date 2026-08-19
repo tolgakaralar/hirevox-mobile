@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import { activateKeepAwakeAsync } from "expo-keep-awake";
@@ -46,27 +47,32 @@ export default function PrepScreen() {
 
   if (!granted) {
     return (
-      <View testID="prep-content" style={styles.content}>
-        <Text>Görüşmeye Hazırlık</Text>
-        <Text>Kamera ve mikrofon erişimi gerekli. İzin vermeden mülakata devam edilemez.</Text>
-        <Pressable onPress={handleRequestPermissions}>
-          <Text>İzin Ver ve Devam Et</Text>
-        </Pressable>
-      </View>
+      <SafeAreaView style={styles.container} edges={["bottom"]}>
+        <View testID="prep-content" style={styles.content}>
+          <Text>Görüşmeye Hazırlık</Text>
+          <Text>Kamera ve mikrofon erişimi gerekli. İzin vermeden mülakata devam edilemez.</Text>
+          <Pressable onPress={handleRequestPermissions}>
+            <Text>İzin Ver ve Devam Et</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View testID="prep-content" style={styles.content}>
-      <Text>Görüşmeye Hazırlık</Text>
-      <Text>Aşağıda kamera önizlemenizi görüyorsunuz — bu önizleme, kalıcı olarak arka planda çalışan CameraHost bileşenindendir (bkz. Task 14).</Text>
-      <Pressable onPress={handleStart} disabled={starting}>
-        <Text>Mülakata Başla</Text>
-      </Pressable>
-    </View>
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
+      <View testID="prep-content" style={styles.content}>
+        <Text>Görüşmeye Hazırlık</Text>
+        <Text>Aşağıda kamera önizlemenizi görüyorsunuz — bu önizleme, kalıcı olarak arka planda çalışan CameraHost bileşenindendir (bkz. Task 14).</Text>
+        <Pressable onPress={handleStart} disabled={starting}>
+          <Text>Mülakata Başla</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingTop: PREVIEW_HEIGHT },
+  container: { flex: 1, backgroundColor: "#fff" },
+  content: { paddingTop: PREVIEW_HEIGHT, paddingHorizontal: 24 },
 });

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useInterview } from "../src/state/InterviewContext";
 import { getNextQuestion, submitAnswer, finishQuestions } from "../src/api/client";
@@ -102,20 +103,27 @@ export default function QuestionScreen() {
   }, []);
 
   return (
-    <View>
-      <Text>
-        Konu {topicNumber}/{totalTopics}
-      </Text>
-      {question && <Text>{question.text}</Text>}
-      {phase === "speaking" && <Text>Soru okunuyor...</Text>}
-      {phase === "recording" && <Text>Kayıt yapılıyor...</Text>}
-      {phase === "processing" && <Text>Cevabınız işleniyor...</Text>}
-      {error && <Text>{error}</Text>}
-      {phase === "recording" && (
-        <Pressable onPress={handleFinish}>
-          <Text>Cevabı Gönder</Text>
-        </Pressable>
-      )}
-    </View>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <View style={styles.content}>
+        <Text>
+          Konu {topicNumber}/{totalTopics}
+        </Text>
+        {question && <Text>{question.text}</Text>}
+        {phase === "speaking" && <Text>Soru okunuyor...</Text>}
+        {phase === "recording" && <Text>Kayıt yapılıyor...</Text>}
+        {phase === "processing" && <Text>Cevabınız işleniyor...</Text>}
+        {error && <Text>{error}</Text>}
+        {phase === "recording" && (
+          <Pressable onPress={handleFinish}>
+            <Text>Cevabı Gönder</Text>
+          </Pressable>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+  content: { flex: 1, padding: 24 },
+});

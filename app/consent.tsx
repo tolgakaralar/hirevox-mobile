@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { View, Text, Switch, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Switch, Pressable, ActivityIndicator, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useInterview } from "../src/state/InterviewContext";
 import { consent } from "../src/api/client";
@@ -25,22 +26,29 @@ export default function ConsentScreen() {
   };
 
   return (
-    <View>
-      <Text>Mülakat Hakkında</Text>
-      <Text>
-        Mülakat süresince kamera görüntünüz ve mikrofon sesiniz tüm oturum boyunca kaydedilir; sekme/uygulama
-        değişimi ve arka plana geçişler bütünlük amacıyla izlenir.
-      </Text>
-      <Switch
-        accessibilityRole="checkbox"
-        value={monitoringConsent}
-        onValueChange={setMonitoringConsent}
-      />
-      <Text>Yukarıdaki bilgileri okudum ve veri toplanmasını kabul ediyorum.</Text>
-      {state.error && <Text>{state.error}</Text>}
-      <Pressable onPress={handleConsent} disabled={loading || !monitoringConsent}>
-        {loading ? <ActivityIndicator /> : <Text>Görüşmeye Gir</Text>}
-      </Pressable>
-    </View>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <View style={styles.content}>
+        <Text>Mülakat Hakkında</Text>
+        <Text>
+          Mülakat süresince kamera görüntünüz ve mikrofon sesiniz tüm oturum boyunca kaydedilir; sekme/uygulama
+          değişimi ve arka plana geçişler bütünlük amacıyla izlenir.
+        </Text>
+        <Switch
+          accessibilityRole="checkbox"
+          value={monitoringConsent}
+          onValueChange={setMonitoringConsent}
+        />
+        <Text>Yukarıdaki bilgileri okudum ve veri toplanmasını kabul ediyorum.</Text>
+        {state.error && <Text>{state.error}</Text>}
+        <Pressable onPress={handleConsent} disabled={loading || !monitoringConsent}>
+          {loading ? <ActivityIndicator /> : <Text>Görüşmeye Gir</Text>}
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+  content: { flex: 1, padding: 24 },
+});
