@@ -3,8 +3,11 @@ import ConsentScreen from "../consent";
 import { InterviewProvider, useInterview } from "../../src/state/InterviewContext";
 import { consent } from "../../src/api/client";
 
+const mockBack = jest.fn();
+const mockReplace = jest.fn();
+
 jest.mock("../../src/api/client");
-jest.mock("expo-router", () => ({ useRouter: () => ({ replace: jest.fn() }) }));
+jest.mock("expo-router", () => ({ useRouter: () => ({ replace: mockReplace, back: mockBack }) }));
 jest.mock("../../src/state/InterviewContext", () => ({
   InterviewProvider: ({ children }: { children: any }) => children,
   useInterview: () => ({
@@ -12,6 +15,11 @@ jest.mock("../../src/state/InterviewContext", () => ({
     dispatch: jest.fn(),
   }),
 }));
+
+beforeEach(() => {
+  mockBack.mockClear();
+  mockReplace.mockClear();
+});
 
 test("submit button disabled until monitoring checkbox is checked", () => {
   render(<ConsentScreen />);
@@ -23,8 +31,14 @@ test("checking consent and submitting calls consent API and navigates to prep", 
   (consent as jest.Mock).mockResolvedValue({ status: "intro" });
   render(<ConsentScreen />);
 
-  fireEvent(screen.getByRole("checkbox"), "valueChange", true);
+  fireEvent.press(screen.getByRole("checkbox"));
   fireEvent.press(screen.getByText("Görüşmeye Gir"));
 
   await waitFor(() => expect(consent).toHaveBeenCalled());
+});
+
+test("back arrow navigates to the previous screen", () => {
+  render(<ConsentScreen />);
+  fireEvent.press(screen.getByLabelText("Geri"));
+  expect(mockBack).toHaveBeenCalled();
 });

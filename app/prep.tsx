@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Dimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useCameraPermissions, useMicrophonePermissions } from "expo-camera";
@@ -7,13 +7,36 @@ import { activateKeepAwakeAsync } from "expo-keep-awake";
 import { useInterview } from "../src/state/InterviewContext";
 import { useCameraRef } from "../src/recording/CameraRefContext";
 import { startSessionRecording } from "../src/recording/sessionRecorder";
+import { colors, typography, radius } from "../src/theme/tokens";
+import { OrionLogo } from "../src/components/OrionLogo";
 
 // CameraHost's "/prep" preview band is full-width with aspectRatio 3/4
 // (see src/recording/CameraHost.tsx), so it's screenWidth * (4/3) tall.
 // It renders as a sibling positioned absolutely on top of this screen, so
 // content here must be pushed below it or it sits underneath the preview
 // and becomes untappable (including the "Mülakata Başla" button).
+//
+// Design deviation: the handoff (docs/design/2026-08-19-mobil-arayuz-tasarimi)
+// puts logo/title/subtitle ABOVE the camera preview inside one card. That's
+// not possible here without moving CameraView out of CameraHost — the one
+// place it's allowed to live (CLAUDE.md) — so the preview stays the
+// topmost, full-bleed element and the rest of the design (logo, copy, mic
+// bar, pickers, info boxes) renders in the surface panel below it instead.
 const PREVIEW_HEIGHT = Dimensions.get("window").width * (4 / 3);
+
+const FLOW_ITEMS = [
+  "Önce kendinizi kısaca tanıtmanız istenecek (yaklaşık 2 dakika).",
+  "Ardından yazılım alanında teknik sorular sorulacak.",
+  "Gerekirse bazı konularda ek soru gelebilir.",
+  "Son olarak cevaplarınız yapay zekâ ile değerlendirilecek.",
+];
+
+const BEFORE_START_ITEMS = [
+  "Sessiz ve rahatsız edilmeyeceğiniz bir ortamda olun.",
+  "Yüzünüzün iyi aydınlatıldığından emin olun.",
+  "İnternet bağlantınızın sabit olduğunu kontrol edin.",
+  "Mülakat boyunca yalnız olun ve başka sekme/uygulama açmayın.",
+];
 
 export default function PrepScreen() {
   const router = useRouter();
@@ -47,32 +70,131 @@ export default function PrepScreen() {
 
   if (!granted) {
     return (
-      <SafeAreaView style={styles.container} edges={["bottom"]}>
+      <SafeAreaView style={styles.screen} edges={["bottom"]}>
         <View testID="prep-content" style={styles.content}>
-          <Text>Görüşmeye Hazırlık</Text>
-          <Text>Kamera ve mikrofon erişimi gerekli. İzin vermeden mülakata devam edilemez.</Text>
-          <Pressable onPress={handleRequestPermissions}>
-            <Text>İzin Ver ve Devam Et</Text>
-          </Pressable>
+          <ScrollView contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
+            <OrionLogo small />
+            <Text style={styles.title}>Görüşmeye Hazırlık</Text>
+            <Text style={styles.subtitle}>Kamera ve mikrofon erişimi gerekli. İzin vermeden mülakata devam edilemez.</Text>
+            <Pressable style={styles.button} onPress={handleRequestPermissions}>
+              <Text style={styles.buttonText}>İzin Ver ve Devam Et</Text>
+            </Pressable>
+          </ScrollView>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <SafeAreaView style={styles.screen} edges={["bottom"]}>
       <View testID="prep-content" style={styles.content}>
-        <Text>Görüşmeye Hazırlık</Text>
-        <Text>Aşağıda kamera önizlemenizi görüyorsunuz — bu önizleme, kalıcı olarak arka planda çalışan CameraHost bileşenindendir (bkz. Task 14).</Text>
-        <Pressable onPress={handleStart} disabled={starting}>
-          <Text>Mülakata Başla</Text>
-        </Pressable>
+        <ScrollView contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
+          <OrionLogo small />
+          <Text style={styles.title}>Görüşmeye Hazırlık</Text>
+          <Text style={styles.subtitle}>Kameranızı ve mikrofonunuzu kontrol edin</Text>
+
+          <Text style={styles.micLabel}>Mikrofon seviyesi</Text>
+          <View style={styles.micTrack}>
+            <View style={styles.micLevel} />
+          </View>
+          <Text style={styles.micHint}>Konuştuğunuzda çubuğun hareket etmesi gerekir.</Text>
+
+          <View style={styles.pickerGroup}>
+            <View>
+              <Text style={styles.pickerLabel}>Kamera</Text>
+              <View style={styles.pickerRow}>
+                <Text style={styles.pickerValue}>Ön kamera</Text>
+                <Text style={styles.pickerChevron}>{"▾"}</Text>
+              </View>
+            </View>
+            <View>
+              <Text style={styles.pickerLabel}>Mikrofon</Text>
+              <View style={styles.pickerRow}>
+                <Text style={styles.pickerValue}>Telefon mikrofonu</Text>
+                <Text style={styles.pickerChevron}>{"▾"}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.box}>
+            <Text style={styles.boxTitle}>Mülakat nasıl işleyecek?</Text>
+            <View style={styles.list}>
+              {FLOW_ITEMS.map((item, i) => (
+                <View key={item} style={styles.listRow}>
+                  <Text style={styles.listNumber}>{i + 1}.</Text>
+                  <Text style={styles.listItem}>{item}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.boxFootnote}>Tahmini toplam süre: yaklaşık 15–20 dakika.</Text>
+          </View>
+
+          <View style={[styles.box, { marginTop: 14 }]}>
+            <Text style={styles.boxTitle}>Başlamadan önce</Text>
+            <View style={styles.list}>
+              {BEFORE_START_ITEMS.map((item) => (
+                <View key={item} style={styles.listRow}>
+                  <Text style={styles.bullet}>{"•"}</Text>
+                  <Text style={styles.listItem}>{item}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <Pressable style={styles.button} onPress={handleStart} disabled={starting}>
+            {starting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Mülakata Başla</Text>}
+          </Pressable>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  content: { paddingTop: PREVIEW_HEIGHT, paddingHorizontal: 24 },
+  screen: { flex: 1, backgroundColor: colors.bg },
+  content: {
+    flex: 1,
+    paddingTop: PREVIEW_HEIGHT,
+    backgroundColor: colors.surface,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
+  },
+  contentInner: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 22 },
+  title: { ...typography.screenTitle, color: colors.heading },
+  subtitle: { fontSize: 15.5, fontWeight: "400", lineHeight: 15.5 * 1.35, color: colors.body, marginTop: 6 },
+  micLabel: { fontSize: 13, fontWeight: "400", lineHeight: 13 * 1.4, color: colors.muted, marginTop: 16 },
+  micTrack: { marginTop: 7, height: 6, borderRadius: radius.bar, backgroundColor: colors.micTrack, overflow: "hidden" },
+  micLevel: { height: "100%", width: "12%", borderRadius: radius.bar, backgroundColor: colors.micLevel },
+  micHint: { fontSize: 13, fontWeight: "400", lineHeight: 13 * 1.4, color: colors.muted, marginTop: 8 },
+  pickerGroup: { marginTop: 16, gap: 12 },
+  pickerLabel: { fontSize: 13, fontWeight: "400", lineHeight: 13 * 1.4, color: colors.muted, marginBottom: 6 },
+  pickerRow: {
+    borderWidth: 1,
+    borderColor: colors.borderInput,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 9,
+    paddingVertical: 13,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pickerValue: { fontSize: 15, fontWeight: "400", color: colors.heading },
+  pickerChevron: { fontSize: 12, color: colors.chevron },
+  box: { marginTop: 18, borderWidth: 1, borderColor: colors.border, borderRadius: radius.box, padding: 15 },
+  boxTitle: typography.boxTitle,
+  list: { marginTop: 12, gap: 7 },
+  listRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  listNumber: { fontSize: 14, fontWeight: "400", lineHeight: 14 * 1.45, color: colors.body },
+  bullet: { fontSize: 14, fontWeight: "400", lineHeight: 14 * 1.45, color: colors.body },
+  listItem: { fontSize: 14, fontWeight: "400", lineHeight: 14 * 1.45, color: colors.body, flex: 1 },
+  boxFootnote: { fontSize: 13, fontWeight: "400", lineHeight: 13 * 1.5, color: colors.muted, marginTop: 12 },
+  button: {
+    marginTop: 18,
+    borderRadius: radius.button,
+    paddingVertical: 16,
+    alignItems: "center",
+    backgroundColor: colors.primary,
+  },
+  buttonText: { ...typography.button, color: "#fff" },
 });
