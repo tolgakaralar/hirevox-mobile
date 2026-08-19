@@ -79,13 +79,13 @@ test('pressing "Bitti" returns to the login screen', async () => {
     </InterviewProvider>
   );
 
-  await waitFor(() => expect(screen.getByText("Bitti")).toBeEnabled());
+  await waitFor(() => expect(screen.getByText("Bitti")).toBeTruthy());
   fireEvent.press(screen.getByText("Bitti"));
 
   expect(mockReplace).toHaveBeenCalledWith("/login");
 });
 
-test('"Bitti" is disabled until cleanup (audio + session recording + session clear) finishes', async () => {
+test('"Bitti" only appears once cleanup (audio + session recording + session clear) finishes', async () => {
   let resolveStop: () => void = () => {};
   jest.mocked(playRemoteAudio).mockResolvedValue();
   jest.mocked(stopSessionRecording).mockReturnValue(
@@ -100,8 +100,8 @@ test('"Bitti" is disabled until cleanup (audio + session recording + session cle
     </InterviewProvider>
   );
 
-  expect(screen.getByText("Bitti")).toBeDisabled();
+  expect(screen.queryByText("Bitti")).toBeNull();
 
   resolveStop();
-  await waitFor(() => expect(screen.getByText("Bitti")).toBeEnabled());
+  await waitFor(() => expect(screen.getByText("Bitti")).toBeTruthy());
 });

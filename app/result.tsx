@@ -63,13 +63,11 @@ export default function ResultScreen() {
         <Text style={styles.paragraph}>
           Değerlendirme sonuçlarınız ilgili ekibimiz tarafından incelenecektir.
         </Text>
-        <Pressable
-          style={[styles.button, !cleanupDone && styles.buttonDisabled]}
-          onPress={handleDone}
-          disabled={!cleanupDone}
-        >
-          <Text style={[styles.buttonText, !cleanupDone && styles.buttonTextDisabled]}>Bitti</Text>
-        </Pressable>
+        {cleanupDone && (
+          <Pressable style={styles.button} onPress={handleDone}>
+            <Text style={styles.buttonText}>Bitti</Text>
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -89,7 +87,5 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15.5, fontWeight: "400", lineHeight: 15.5 * 1.5, color: colors.muted, marginTop: 16, textAlign: "center" },
   paragraph: { fontSize: 15, fontWeight: "400", lineHeight: 15 * 1.55, color: colors.muted, marginTop: 18, textAlign: "center" },
   button: { marginTop: 24, borderRadius: 10, paddingVertical: 16, alignItems: "center", backgroundColor: colors.primary, width: "100%" },
-  buttonDisabled: { backgroundColor: colors.primaryDisabledBg },
   buttonText: { ...typography.button, color: "#fff" },
-  buttonTextDisabled: { color: colors.primaryDisabledFg },
 });
