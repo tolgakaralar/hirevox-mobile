@@ -28,8 +28,8 @@ async function request(path: string, options: RequestInit = {}) {
   return res.json();
 }
 
-export function login(code: string, token: string) {
-  return request("/login", { method: "POST", body: JSON.stringify({ code, token }) }) as Promise<{
+export function login(code: string) {
+  return request("/login", { method: "POST", body: JSON.stringify({ code }) }) as Promise<{
     sessionId: string;
     message: string;
   }>;

@@ -1,13 +1,13 @@
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { Redirect } from "expo-router";
 
-// The backend's mail invite link points at the app root (`/?t=<token>`, see
-// server/services/mailer.js:53 in the video-ai repo). Without this file, `/`
+// The backend's mail invite link points at the app root (`/`, see
+// server/services/mailer.js in the video-ai repo). Without this file, `/`
 // had no matching route and Expo Router fell through to its "Unmatched"
-// screen. login.tsx already owns the full login UI and its own test
-// (app/__tests__/login.test.tsx) exercises it in detail, so this file stays
-// a thin forwarder: read the deep-link `t` param here and hand it to
-// /login unchanged, rather than duplicating login.tsx's logic.
+// screen. The link no longer carries a personal token (video-ai removed
+// that system 2026-08-18, see
+// docs/features/2026-08-18-kisiye-ozel-giris-linkini-kaldir.md in that
+// repo) — login.tsx now only needs the access code, so this file stays a
+// thin forwarder with nothing left to pass through.
 export default function IndexScreen() {
-  const { t } = useLocalSearchParams<{ t?: string }>();
-  return <Redirect href={{ pathname: "/login", params: t ? { t } : {} }} />;
+  return <Redirect href="/login" />;
 }

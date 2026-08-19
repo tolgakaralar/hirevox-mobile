@@ -7,7 +7,6 @@ import { saveSessionId } from "../../src/storage/session";
 jest.mock("../../src/api/client");
 jest.mock("../../src/storage/session");
 jest.mock("expo-router", () => ({
-  useLocalSearchParams: jest.fn(() => ({ t: "deep-link-token" })),
   useRouter: () => ({ replace: jest.fn() }),
 }));
 
@@ -19,24 +18,19 @@ function renderLogin() {
   );
 }
 
-beforeEach(() => {
-  jest.mocked(require("expo-router").useLocalSearchParams).mockReturnValue({ t: "deep-link-token" });
-});
-
-test("missing deep link token shows blocking error and disables submit", () => {
-  jest.mocked(require("expo-router").useLocalSearchParams).mockReturnValue({});
+test("submit button disabled until a code is entered", () => {
   renderLogin();
-  expect(screen.getByText(/Geçersiz veya eksik bağlantı/)).toBeTruthy();
+  expect(screen.getByText("Mülakata Başla")).toBeDisabled();
 });
 
-test("submits code with deep-link token and saves session on success", async () => {
+test("submits code and saves session on success", async () => {
   (login as jest.Mock).mockResolvedValue({ sessionId: "s1", message: "ok" });
   renderLogin();
 
   fireEvent.changeText(screen.getByPlaceholderText("Erişim kodunu girin"), "12345678");
   fireEvent.press(screen.getByText("Mülakata Başla"));
 
-  await waitFor(() => expect(login).toHaveBeenCalledWith("12345678", "deep-link-token"));
+  await waitFor(() => expect(login).toHaveBeenCalledWith("12345678"));
   expect(saveSessionId).toHaveBeenCalledWith("s1");
 });
 

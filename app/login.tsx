@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { View, Text, TextInput, Pressable, ActivityIndicator } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useInterview } from "../src/state/InterviewContext";
 import { login } from "../src/api/client";
 import { saveSessionId } from "../src/storage/session";
 
 export default function LoginScreen() {
-  const { t } = useLocalSearchParams<{ t?: string }>();
   const router = useRouter();
   const { dispatch } = useInterview();
   const [code, setCode] = useState("");
@@ -14,11 +13,11 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!code.trim() || !t) return;
+    if (!code.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await login(code.trim(), t);
+      const data = await login(code.trim());
       await saveSessionId(data.sessionId);
       dispatch({ type: "SET_SESSION", sessionId: data.sessionId });
       router.replace("/consent");
@@ -32,7 +31,6 @@ export default function LoginScreen() {
   return (
     <View>
       <Text>HireVox</Text>
-      {!t && <Text>Geçersiz veya eksik bağlantı. Lütfen size gönderilen kişisel linki kullanın.</Text>}
       {error && <Text>{error}</Text>}
       <TextInput
         placeholder="Erişim kodunu girin"
@@ -41,7 +39,7 @@ export default function LoginScreen() {
         secureTextEntry
         editable={!loading}
       />
-      <Pressable onPress={handleSubmit} disabled={loading || !code.trim() || !t}>
+      <Pressable onPress={handleSubmit} disabled={loading || !code.trim()}>
         {loading ? <ActivityIndicator /> : <Text>Mülakata Başla</Text>}
       </Pressable>
     </View>

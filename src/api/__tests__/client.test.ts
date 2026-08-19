@@ -7,19 +7,19 @@ afterEach(() => {
   jest.resetAllMocks();
 });
 
-test("login POSTs code+token and returns sessionId", async () => {
+test("login POSTs code and returns sessionId", async () => {
   global.fetch = jest.fn().mockResolvedValue({
     ok: true,
     json: async () => ({ sessionId: "abc-123", message: "Giriş başarılı" }),
   }) as unknown as typeof fetch;
 
-  const result = await login("12345678", "tok-1");
+  const result = await login("12345678");
 
   expect(global.fetch).toHaveBeenCalledWith(
     "https://test.local/api/login",
     expect.objectContaining({
       method: "POST",
-      body: JSON.stringify({ code: "12345678", token: "tok-1" }),
+      body: JSON.stringify({ code: "12345678" }),
     })
   );
   expect(result).toEqual({ sessionId: "abc-123", message: "Giriş başarılı" });
@@ -32,7 +32,7 @@ test("login throws ApiError with backend message on non-ok response", async () =
     json: async () => ({ error: "Geçersiz erişim kodu" }),
   }) as unknown as typeof fetch;
 
-  await expect(login("wrong", "tok-1")).rejects.toMatchObject({
+  await expect(login("wrong")).rejects.toMatchObject({
     message: "Geçersiz erişim kodu",
     status: 401,
   });
