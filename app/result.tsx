@@ -5,6 +5,8 @@ import { deactivateKeepAwake } from "expo-keep-awake";
 import { playRemoteAudio } from "../src/audio/playRemoteAudio";
 import { stopSessionRecording } from "../src/recording/sessionRecorder";
 import { clearSessionId } from "../src/storage/session";
+import { colors, typography, spacing, cardStyle } from "../src/theme/tokens";
+import { OrionLogo } from "../src/components/OrionLogo";
 
 export default function ResultScreen() {
   useEffect(() => {
@@ -37,16 +39,30 @@ export default function ResultScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      <View style={styles.content}>
-        <Text>Mülakat Tamamlandı</Text>
-        <Text>Katılımınız için teşekkür ederiz.</Text>
+    <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+      <View style={styles.card}>
+        <OrionLogo />
+        <Text style={styles.title}>Mülakat Tamamlandı</Text>
+        <Text style={styles.subtitle}>Katılımınız için teşekkür ederiz.</Text>
+        <Text style={styles.paragraph}>
+          Değerlendirme sonuçlarınız ilgili ekibimiz tarafından incelenecektir.
+        </Text>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  content: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
+  screen: {
+    flex: 1,
+    backgroundColor: colors.bg,
+    paddingTop: spacing.screenPaddingTopLarge,
+    paddingHorizontal: spacing.screenPaddingHorizontal,
+    paddingBottom: 34,
+    justifyContent: "center",
+  },
+  card: { ...cardStyle, paddingVertical: 40, paddingHorizontal: 22, alignItems: "center" },
+  title: { ...typography.resultTitle, color: colors.heading, textAlign: "center" },
+  subtitle: { fontSize: 15.5, fontWeight: "400", lineHeight: 15.5 * 1.5, color: colors.muted, marginTop: 16, textAlign: "center" },
+  paragraph: { fontSize: 15, fontWeight: "400", lineHeight: 15 * 1.55, color: colors.muted, marginTop: 18, textAlign: "center" },
 });
