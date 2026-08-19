@@ -5,6 +5,8 @@ import { useRouter } from "expo-router";
 import { useInterview } from "../src/state/InterviewContext";
 import { login } from "../src/api/client";
 import { saveSessionId } from "../src/storage/session";
+import { colors, typography, spacing, radius, cardStyle, inputStyle, buttonStyle } from "../src/theme/tokens";
+import { OrionLogo } from "../src/components/OrionLogo";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -29,25 +31,44 @@ export default function LoginScreen() {
     }
   };
 
+  const canSubmit = !loading && !!code.trim();
+
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      <View style={styles.content}>
+    <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+      <View style={styles.card}>
+        <OrionLogo />
         <Text style={styles.title}>HireVox</Text>
-        {error && <Text style={styles.error}>{error}</Text>}
+        <Text style={styles.subtitle}>Online Mülakat Platformu</Text>
+        <Text style={styles.description}>Hoş geldiniz! Mülakata başlamak için size verilen erişim kodunu girin.</Text>
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
         <TextInput
           style={styles.input}
           placeholder="Erişim kodunu girin"
+          placeholderTextColor={colors.muted}
           value={code}
-          onChangeText={setCode}
+          onChangeText={(text) => {
+            setCode(text);
+            setError(null);
+          }}
           secureTextEntry
           editable={!loading}
         />
         <Pressable
-          style={[styles.button, (loading || !code.trim()) && styles.buttonDisabled]}
+          style={[styles.button, { backgroundColor: canSubmit ? colors.primary : colors.primaryDisabledBg }]}
           onPress={handleSubmit}
-          disabled={loading || !code.trim()}
+          disabled={!canSubmit}
         >
-          {loading ? <ActivityIndicator /> : <Text style={styles.buttonText}>Mülakata Başla</Text>}
+          {loading ? (
+            <ActivityIndicator color={colors.primaryDisabledFg} />
+          ) : (
+            <Text style={[styles.buttonText, { color: canSubmit ? "#fff" : colors.primaryDisabledFg }]}>
+              Mülakata Başla
+            </Text>
+          )}
         </Pressable>
       </View>
     </SafeAreaView>
@@ -55,47 +76,32 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: "#fff",
-  },
-  content: {
-    flex: 1,
+    backgroundColor: colors.bg,
+    paddingTop: spacing.screenPaddingTopLarge,
+    paddingHorizontal: spacing.screenPaddingHorizontal,
+    paddingBottom: spacing.screenPaddingBottom,
     justifyContent: "center",
-    paddingHorizontal: 24,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 24,
-    textAlign: "center",
+  card: {
+    ...cardStyle,
+    paddingTop: 30,
+    paddingHorizontal: 22,
+    paddingBottom: 24,
   },
-  error: {
-    color: "#c0392b",
-    marginBottom: 12,
-    textAlign: "center",
+  title: { ...typography.screenTitleLogin, color: colors.heading },
+  subtitle: { ...typography.subtitle, color: colors.body, marginTop: 6 },
+  description: { ...typography.body, lineHeight: 14.5 * 1.5, color: colors.muted, marginTop: 16 },
+  errorBanner: {
+    marginTop: 16,
+    backgroundColor: colors.errorBg,
+    borderRadius: radius.input,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  button: {
-    backgroundColor: "#2563eb",
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  errorText: { fontSize: 13.5, lineHeight: 13.5 * 1.45, color: colors.errorFg },
+  input: { ...inputStyle, marginTop: 16, fontSize: 16, color: colors.heading, letterSpacing: 0.5 },
+  button: { ...buttonStyle, marginTop: 12 },
+  buttonText: typography.button,
 });
