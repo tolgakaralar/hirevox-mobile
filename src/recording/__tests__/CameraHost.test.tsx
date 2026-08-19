@@ -25,8 +25,20 @@ test("full-size visible style while on /prep", () => {
   expect(lastProps.videoQuality).toBe("480p");
 });
 
-test("hidden 1x1 style on any other route, e.g. /question", () => {
-  mockUsePathname.mockReturnValue("/question");
+test.each(["/intro", "/question"])("PiP style while on %s", (pathname) => {
+  mockUsePathname.mockReturnValue(pathname);
+  render(
+    <CameraRefProvider>
+      <CameraHost />
+    </CameraRefProvider>
+  );
+  expect(lastProps.style).toMatchObject({ width: 112, aspectRatio: 3 / 4 });
+  expect(lastProps.mode).toBe("video");
+  expect(lastProps.videoQuality).toBe("480p");
+});
+
+test("hidden 1x1 style on any other route, e.g. /evaluating", () => {
+  mockUsePathname.mockReturnValue("/evaluating");
   render(
     <CameraRefProvider>
       <CameraHost />

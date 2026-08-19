@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react-native";
 import IntroScreen from "../intro";
 import { InterviewProvider, useInterview } from "../../src/state/InterviewContext";
 import { startQuestionRecording, stopQuestionRecording } from "../../src/recording/questionRecorder";
@@ -97,6 +97,21 @@ test("plays welcome audio then starts recording", async () => {
 
   await waitFor(() => expect(playRemoteAudio).toHaveBeenCalledWith("giris-karsilama.mp3"));
   await waitFor(() => expect(startQuestionRecording).toHaveBeenCalled());
+});
+
+test("counts down from 02:00 once recording, one second at a time", async () => {
+  jest.useFakeTimers({ advanceTimers: true });
+  renderIntro();
+
+  await waitFor(() => screen.getByText("Konuşmayı Bitir"));
+  expect(screen.getByText("02:00")).toBeTruthy();
+
+  act(() => {
+    jest.advanceTimersByTime(3000);
+  });
+  expect(screen.getByText("01:57")).toBeTruthy();
+
+  jest.useRealTimers();
 });
 
 test("finishing submits intro-phase answer and advances via introDone", async () => {
