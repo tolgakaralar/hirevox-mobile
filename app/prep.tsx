@@ -7,6 +7,7 @@ import { activateKeepAwakeAsync } from "expo-keep-awake";
 import { useInterview } from "../src/state/InterviewContext";
 import { useCameraRef } from "../src/recording/CameraRefContext";
 import { startSessionRecording } from "../src/recording/sessionRecorder";
+import { useMicLevel } from "../src/hooks/useMicLevel";
 import { colors, typography, radius } from "../src/theme/tokens";
 import { OrionLogo } from "../src/components/OrionLogo";
 
@@ -47,6 +48,12 @@ export default function PrepScreen() {
   const [starting, setStarting] = useState(false);
 
   const granted = cameraPerm?.granted && micPerm?.granted;
+  // Live "Mikrofon seviyesi" meter — only runs once actually on screen and
+  // showing it (the granted branch below). Must stop before the real
+  // interview recording starts its own LiveAudioStream session (see
+  // handleStart), so `stopMicLevelMetering` is exposed rather than relying
+  // solely on unmount-on-navigate cleanup.
+  const { level: micLevel, stop: stopMicLevelMetering } = useMicLevel(Boolean(granted));
   // iOS/Android only ever show the native permission prompt once per app
   // install; once denied, requesting again is a silent no-op (that's the bug
   // this guards against — "İzin Ver ve Devam Et" doing nothing when the user
@@ -81,6 +88,7 @@ export default function PrepScreen() {
 
   const handleStart = async () => {
     if (!state.sessionId) return;
+    stopMicLevelMetering();
     setStarting(true);
     await activateKeepAwakeAsync();
     await startSessionRecording(state.sessionId, cameraRef);
@@ -133,7 +141,10 @@ export default function PrepScreen() {
 
           <Text style={styles.micLabel}>Mikrofon seviyesi</Text>
           <View style={styles.micTrack}>
-            <View style={styles.micLevel} />
+            <View
+              testID="mic-level-bar"
+              style={[styles.micLevel, { width: `${Math.round(Math.max(0.04, micLevel) * 100)}%` }]}
+            />
           </View>
           <Text style={styles.micHint}>Konuştuğunuzda çubuğun hareket etmesi gerekir.</Text>
 
@@ -206,7 +217,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15.5, fontWeight: "400", lineHeight: 15.5 * 1.35, color: colors.body, marginTop: 6 },
   micLabel: { fontSize: 13, fontWeight: "400", lineHeight: 13 * 1.4, color: colors.muted, marginTop: 16 },
   micTrack: { marginTop: 7, height: 6, borderRadius: radius.bar, backgroundColor: colors.micTrack, overflow: "hidden" },
-  micLevel: { height: "100%", width: "12%", borderRadius: radius.bar, backgroundColor: colors.micLevel },
+  micLevel: { height: "100%", borderRadius: radius.bar, backgroundColor: colors.micLevel },
   micHint: { fontSize: 13, fontWeight: "400", lineHeight: 13 * 1.4, color: colors.muted, marginTop: 8 },
   pickerGroup: { marginTop: 16, gap: 12 },
   pickerLabel: { fontSize: 13, fontWeight: "400", lineHeight: 13 * 1.4, color: colors.muted, marginBottom: 6 },

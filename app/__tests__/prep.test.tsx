@@ -1,12 +1,21 @@
 import { useEffect } from "react";
 import { AppState, Dimensions, Linking, StyleSheet } from "react-native";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react-native";
+import LiveAudioStream from "react-native-live-audio-stream";
+import { fromByteArray } from "base64-js";
 import PrepScreen from "../prep";
 import { InterviewProvider, useInterview } from "../../src/state/InterviewContext";
 import { CameraRefProvider } from "../../src/recording/CameraRefContext";
 import { startSessionRecording } from "../../src/recording/sessionRecorder";
 
 jest.mock("../../src/recording/sessionRecorder");
+// useMicLevel (mic-level meter on this screen) uses this under the hood.
+jest.mock("react-native-live-audio-stream", () => ({
+  init: jest.fn(),
+  start: jest.fn(),
+  stop: jest.fn(),
+  on: jest.fn(),
+}));
 // Module-level so tests can assert on which route PrepScreen navigates to
 // (a fresh jest.fn() per render, as before, can never be asserted on).
 const mockReplace = jest.fn();
@@ -170,6 +179,42 @@ test("pressing start requests permissions then begins session recording, then co
   fireEvent.press(screen.getByText("Mülakata Başla"));
   await waitFor(() => expect(startSessionRecording).toHaveBeenCalled());
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/intro"));
+});
+
+// GitHub finding: the "Mikrofon seviyesi" bar was a hardcoded 12%-width
+// View with no metering behind it at all, despite the hint text right next
+// to it ("Konuştuğunuzda çubuğun hareket etmesi gerekir.") promising it
+// reacts to speech. It now reads live levels from the same LiveAudioStream
+// PCM feed the real question recorder streams to STT (via useMicLevel).
+test("mic level bar reflects live microphone input once permission is granted", async () => {
+  renderPrep();
+  fireEvent.press(screen.getByText("İzin Ver ve Devam Et"));
+  await waitFor(() => expect(screen.getByText("Mülakata Başla")).toBeTruthy());
+
+  const onDataCall = (LiveAudioStream.on as jest.Mock).mock.calls.find(([event]) => event === "data");
+  const onData = onDataCall![1] as (chunk: string) => void;
+
+  const loudBytes = new Uint8Array(64);
+  for (let i = 0; i < 32; i++) {
+    loudBytes[i * 2] = 0xff;
+    loudBytes[i * 2 + 1] = 0x7f;
+  }
+  act(() => onData(fromByteArray(loudBytes)));
+
+  const bar = screen.getByTestId("mic-level-bar");
+  expect(StyleSheet.flatten(bar.props.style).width).not.toBe("12%");
+});
+
+// Metering and the real interview recording both use LiveAudioStream —
+// they must never run at once, so metering has to stop before the real
+// recording (started inside handleStart, on the way to /intro) begins.
+test("starting the interview stops mic-level metering before handing off to the real recording", async () => {
+  renderPrep();
+  fireEvent.press(screen.getByText("İzin Ver ve Devam Et"));
+  await waitFor(() => expect(screen.getByText("Mülakata Başla")).toBeTruthy());
+
+  fireEvent.press(screen.getByText("Mülakata Başla"));
+  await waitFor(() => expect(LiveAudioStream.stop).toHaveBeenCalled());
 });
 
 // GitHub issue: denying camera/mic permission via iOS Settings before
