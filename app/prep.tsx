@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Dimensions } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Dimensions, Linking, AppState } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useCameraPermissions, useMicrophonePermissions } from "expo-camera";
@@ -41,16 +41,42 @@ const BEFORE_START_ITEMS = [
 export default function PrepScreen() {
   const router = useRouter();
   const { state, dispatch } = useInterview();
-  const [cameraPerm, requestCameraPerm] = useCameraPermissions();
-  const [micPerm, requestMicPerm] = useMicrophonePermissions();
+  const [cameraPerm, requestCameraPerm, getCameraPerm] = useCameraPermissions();
+  const [micPerm, requestMicPerm, getMicPerm] = useMicrophonePermissions();
   const cameraRef = useCameraRef();
   const [starting, setStarting] = useState(false);
 
   const granted = cameraPerm?.granted && micPerm?.granted;
+  // iOS/Android only ever show the native permission prompt once per app
+  // install; once denied, requesting again is a silent no-op (that's the bug
+  // this guards against — "İzin Ver ve Devam Et" doing nothing when the user
+  // had already denied access, e.g. via system Settings before opening the
+  // app). canAskAgain: false is the OS's signal that we must send the user
+  // to Settings instead of requesting again.
+  const permanentlyDenied =
+    (cameraPerm?.canAskAgain === false && !cameraPerm?.granted) ||
+    (micPerm?.canAskAgain === false && !micPerm?.granted);
+
+  // Re-check permission status when the app returns to foreground, so a
+  // grant made in Settings is picked up automatically instead of leaving
+  // the user stuck on this screen after they come back.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        getCameraPerm();
+        getMicPerm();
+      }
+    });
+    return () => subscription.remove();
+  }, [getCameraPerm, getMicPerm]);
 
   const handleRequestPermissions = async () => {
     await requestCameraPerm();
     await requestMicPerm();
+  };
+
+  const handleOpenSettings = () => {
+    Linking.openSettings();
   };
 
   const handleStart = async () => {
@@ -70,15 +96,27 @@ export default function PrepScreen() {
 
   if (!granted) {
     return (
-      <SafeAreaView style={styles.screen} edges={["bottom"]}>
+      <SafeAreaView testID="prep-safe-area" style={styles.screen} edges={["top", "bottom"]}>
         <View testID="prep-content" style={styles.content}>
           <ScrollView contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
             <OrionLogo small />
             <Text style={styles.title}>Görüşmeye Hazırlık</Text>
             <Text style={styles.subtitle}>Kamera ve mikrofon erişimi gerekli. İzin vermeden mülakata devam edilemez.</Text>
-            <Pressable style={styles.button} onPress={handleRequestPermissions}>
-              <Text style={styles.buttonText}>İzin Ver ve Devam Et</Text>
-            </Pressable>
+            {permanentlyDenied ? (
+              <>
+                <Text style={styles.subtitle}>
+                  İzin, Ayarlar'dan kapatılmış görünüyor. Devam etmek için Ayarlar'dan kamera ve mikrofon erişimini
+                  açın.
+                </Text>
+                <Pressable style={styles.button} onPress={handleOpenSettings}>
+                  <Text style={styles.buttonText}>Ayarlar'a Git</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable style={styles.button} onPress={handleRequestPermissions}>
+                <Text style={styles.buttonText}>İzin Ver ve Devam Et</Text>
+              </Pressable>
+            )}
           </ScrollView>
         </View>
       </SafeAreaView>
@@ -86,8 +124,8 @@ export default function PrepScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={["bottom"]}>
-      <View testID="prep-content" style={styles.content}>
+    <SafeAreaView testID="prep-safe-area" style={styles.screen} edges={["bottom"]}>
+      <View testID="prep-content" style={[styles.content, styles.contentWithPreview]}>
         <ScrollView contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
           <OrionLogo small />
           <Text style={styles.title}>Görüşmeye Hazırlık</Text>
@@ -154,11 +192,15 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: {
     flex: 1,
-    paddingTop: PREVIEW_HEIGHT,
     backgroundColor: colors.surface,
     borderBottomLeftRadius: 22,
     borderBottomRightRadius: 22,
   },
+  // Only applied once permission is granted and CameraHost actually shows
+  // its full-size "/prep" preview band — without permission CameraHost
+  // falls back to its hidden mode (see CameraHost.tsx), so there's no
+  // preview to reserve space for and content should sit near the top.
+  contentWithPreview: { paddingTop: PREVIEW_HEIGHT },
   contentInner: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 22 },
   title: { ...typography.screenTitle, color: colors.heading },
   subtitle: { fontSize: 15.5, fontWeight: "400", lineHeight: 15.5 * 1.35, color: colors.body, marginTop: 6 },

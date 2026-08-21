@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Dimensions } from "react-native";
+import { AppState, Dimensions, Linking, StyleSheet } from "react-native";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
 import PrepScreen from "../prep";
 import { InterviewProvider, useInterview } from "../../src/state/InterviewContext";
@@ -11,21 +11,37 @@ jest.mock("../../src/recording/sessionRecorder");
 // (a fresh jest.fn() per render, as before, can never be asserted on).
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ replace: mockReplace }) }));
+// Module-level so tests can simulate the permission state changing outside
+// the app (e.g. the user flipping it in iOS Settings) and then trigger the
+// hook's `get` method to pick that change up, same as the real
+// expo-modules-core hook's getPermission does (see PermissionsHook.ts).
+let mockPermissionState: { granted: boolean; canAskAgain: boolean; status: string } = {
+  granted: false,
+  canAskAgain: true,
+  status: "undetermined",
+};
 // The real useCameraPermissions/useMicrophonePermissions hooks are stateful:
 // calling requestPermission() updates the hook's own state and triggers a
 // re-render with granted: true (see expo-modules-core's PermissionsHook).
 // Mirror that here instead of a stateless mock, so PrepScreen's
 // `cameraPerm?.granted && micPerm?.granted` check is exercised for real.
+// Also mirror the real hook's 3-tuple return ([status, request, get]) so
+// PrepScreen's foreground re-check (via the `get` method) is exercised too.
 jest.mock("expo-camera", () => {
   const { useState } = require("react");
   const hook = () => {
-    const [permission, setPermission] = useState({ granted: false });
+    const [permission, setPermission] = useState(mockPermissionState);
     const request = async () => {
-      const granted = { granted: true };
+      const granted = { granted: true, canAskAgain: true, status: "granted" };
+      mockPermissionState = granted;
       setPermission(granted);
       return granted;
     };
-    return [permission, request];
+    const get = async () => {
+      setPermission(mockPermissionState);
+      return mockPermissionState;
+    };
+    return [permission, request, get];
   };
   return { useCameraPermissions: hook, useMicrophonePermissions: hook };
 });
@@ -76,8 +92,16 @@ function renderResumedPrep() {
   );
 }
 
+let appStateHandler: (state: string) => void = () => {};
+
 beforeEach(() => {
   mockReplace.mockClear();
+  mockPermissionState = { granted: false, canAskAgain: true, status: "undetermined" };
+  jest.spyOn(AppState, "addEventListener").mockImplementation((_event, handler) => {
+    appStateHandler = handler as (state: string) => void;
+    return { remove: jest.fn() } as never;
+  });
+  jest.spyOn(Linking, "openSettings").mockImplementation(() => Promise.resolve());
 });
 
 test("shows permission blocked message before permissions are granted", () => {
@@ -92,11 +116,40 @@ test("shows permission blocked message before permissions are granted", () => {
 // making it untappable. PrepScreen must reserve that much space at the top
 // so its content (and the button) renders below the preview instead of
 // underneath it.
-test("reserves space for the camera preview band so content isn't covered, before permissions are granted", () => {
+// GitHub finding (#40): before permissions are granted, CameraHost renders
+// in its "hidden" mode — no preview band on screen at all (see
+// CameraHost.test.tsx's own "falls back to hidden mode ... when permission
+// isn't granted"). Reserving top space for a preview that isn't there
+// pushed the blocked-permission message and "Ayarlar'a Git"/"İzin Ver ve
+// Devam Et" button down near the bottom of the screen instead of near the
+// top where there's nothing else competing for space.
+test("does not reserve camera-preview space before permissions are granted, since there's no preview band to avoid covering", () => {
   renderPrep();
   const previewHeight = Dimensions.get("window").width * (4 / 3);
   const content = screen.getByTestId("prep-content");
-  expect(content.props.style).toMatchObject({ paddingTop: previewHeight });
+  expect(StyleSheet.flatten(content.props.style).paddingTop).not.toBe(previewHeight);
+});
+
+// GitHub finding: once the previous fix dropped the preview-height top
+// padding for the blocked-permission branch, its content had nothing else
+// pushing it below the device's top inset (notch/speaker cutout) — the
+// SafeAreaView here was `edges: ["bottom"]` only, a deliberate choice for
+// the granted branch where CameraHost's own full-bleed preview already
+// covers that area, but wrong for the blocked branch where there's no
+// preview at all and the logo/text needs the safe top inset itself.
+test("respects the top safe-area inset before permissions are granted, so the logo isn't cut off by the notch/speaker", () => {
+  renderPrep();
+  const safeArea = screen.getByTestId("prep-safe-area");
+  expect(safeArea.props.edges).toMatchObject({ top: "additive" });
+});
+
+test("does not add extra top safe-area inset once permission is granted, since CameraHost's preview already fills that area", async () => {
+  renderPrep();
+  fireEvent.press(screen.getByText("İzin Ver ve Devam Et"));
+  await waitFor(() => expect(screen.getByText("Mülakata Başla")).toBeTruthy());
+
+  const safeArea = screen.getByTestId("prep-safe-area");
+  expect(safeArea.props.edges).toMatchObject({ top: "off" });
 });
 
 test("reserves space for the camera preview band so the start button isn't covered, after permissions are granted", async () => {
@@ -106,7 +159,7 @@ test("reserves space for the camera preview band so the start button isn't cover
 
   const previewHeight = Dimensions.get("window").width * (4 / 3);
   const content = screen.getByTestId("prep-content");
-  expect(content.props.style).toMatchObject({ paddingTop: previewHeight });
+  expect(StyleSheet.flatten(content.props.style).paddingTop).toBe(previewHeight);
 });
 
 test("pressing start requests permissions then begins session recording, then continues to /intro by default", async () => {
@@ -117,6 +170,39 @@ test("pressing start requests permissions then begins session recording, then co
   fireEvent.press(screen.getByText("Mülakata Başla"));
   await waitFor(() => expect(startSessionRecording).toHaveBeenCalled());
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/intro"));
+});
+
+// GitHub issue: denying camera/mic permission via iOS Settings before
+// opening the app leaves canAskAgain: false. Calling requestPermission()
+// again in that state is a no-op on real iOS (the OS only shows its native
+// prompt once) — "İzin Ver ve Devam Et" silently does nothing. The screen
+// must offer a way to iOS Settings instead once the OS says it won't ask again.
+test("shows 'Ayarlar'a Git' instead of the request button once permission can no longer be asked for again", () => {
+  mockPermissionState = { granted: false, canAskAgain: false, status: "denied" };
+  renderPrep();
+
+  expect(screen.getByText("Ayarlar'a Git")).toBeTruthy();
+  expect(screen.queryByText("İzin Ver ve Devam Et")).toBeNull();
+});
+
+test("pressing 'Ayarlar'a Git' opens the system settings app", () => {
+  mockPermissionState = { granted: false, canAskAgain: false, status: "denied" };
+  renderPrep();
+
+  fireEvent.press(screen.getByText("Ayarlar'a Git"));
+  expect(Linking.openSettings).toHaveBeenCalled();
+});
+
+test("re-checks permission when the app returns to foreground, so granting it in Settings unblocks the screen without a manual retry", async () => {
+  mockPermissionState = { granted: false, canAskAgain: false, status: "denied" };
+  renderPrep();
+  expect(screen.getByText("Ayarlar'a Git")).toBeTruthy();
+
+  // user leaves the app, grants access in iOS Settings, comes back
+  mockPermissionState = { granted: true, canAskAgain: true, status: "granted" };
+  appStateHandler("active");
+
+  await waitFor(() => expect(screen.getByText("Mülakata Başla")).toBeTruthy());
 });
 
 test("resumed session (resumeTarget set) restarts recording then continues to the original page, not /intro", async () => {

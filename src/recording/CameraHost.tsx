@@ -1,5 +1,6 @@
-import { View, Text, StyleSheet } from "react-native";
-import { CameraView } from "expo-camera";
+import { useEffect } from "react";
+import { View, Text, StyleSheet, AppState } from "react-native";
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import { usePathname } from "expo-router";
 import { useCameraRef } from "./CameraRefContext";
 import { colors } from "../theme/tokens";
@@ -15,7 +16,28 @@ const PATHNAME_TO_MODE: Record<string, Mode> = {
 export function CameraHost() {
   const cameraRef = useCameraRef();
   const pathname = usePathname();
-  const mode: Mode = PATHNAME_TO_MODE[pathname] ?? "hidden";
+  const routeMode: Mode = PATHNAME_TO_MODE[pathname] ?? "hidden";
+  const [cameraPerm, , getCameraPerm] = useCameraPermissions();
+  const [micPerm, , getMicPerm] = useMicrophonePermissions();
+  const permissionGranted = cameraPerm?.granted && micPerm?.granted;
+
+  // Without permission there's no live feed to show — the "prep" box (and
+  // its "you're not being recorded, this is just a preview" banner) must
+  // hide along with it instead of sitting there over a black box. Re-check
+  // on foreground so granting permission in Settings brings it back without
+  // requiring a reload (mirrors PrepScreen's own re-check for the same
+  // reason).
+  const mode: Mode = routeMode === "prep" && !permissionGranted ? "hidden" : routeMode;
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        getCameraPerm();
+        getMicPerm();
+      }
+    });
+    return () => subscription.remove();
+  }, [getCameraPerm, getMicPerm]);
 
   if (mode === "prep") {
     return (
