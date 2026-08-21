@@ -12,7 +12,12 @@ import { OrionLogo } from "../src/components/OrionLogo";
 
 export default function ResultScreen() {
   const router = useRouter();
-  const { dispatch } = useInterview();
+  const { state, dispatch } = useInterview();
+  // Set by e.g. useNetworkTolerance (question.tsx) when the interview is
+  // auto-terminated instead of finishing normally — must be shown here or
+  // the user just sees the ordinary "thank you" screen with no indication
+  // anything went wrong.
+  const terminatedByError = Boolean(state.error);
   const [cleanupDone, setCleanupDone] = useState(false);
 
   const handleDone = () => {
@@ -58,11 +63,20 @@ export default function ResultScreen() {
     <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
       <View style={styles.card}>
         <OrionLogo />
-        <Text style={styles.title}>Mülakat Tamamlandı</Text>
-        <Text style={styles.subtitle}>Katılımınız için teşekkür ederiz.</Text>
-        <Text style={styles.paragraph}>
-          Değerlendirme sonuçlarınız ilgili ekibimiz tarafından incelenecektir.
-        </Text>
+        {terminatedByError ? (
+          <>
+            <Text style={styles.title}>Mülakat Sonlandırıldı</Text>
+            <Text style={styles.subtitle}>{state.error}</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.title}>Mülakat Tamamlandı</Text>
+            <Text style={styles.subtitle}>Katılımınız için teşekkür ederiz.</Text>
+            <Text style={styles.paragraph}>
+              Değerlendirme sonuçlarınız ilgili ekibimiz tarafından incelenecektir.
+            </Text>
+          </>
+        )}
         {cleanupDone && (
           <Pressable style={styles.button} onPress={handleDone}>
             <Text style={styles.buttonText}>Bitti</Text>

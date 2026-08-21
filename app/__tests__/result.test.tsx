@@ -1,6 +1,7 @@
+import { useEffect } from "react";
 import { render, waitFor, screen, fireEvent } from "@testing-library/react-native";
 import ResultScreen from "../result";
-import { InterviewProvider } from "../../src/state/InterviewContext";
+import { InterviewProvider, useInterview } from "../../src/state/InterviewContext";
 import { stopSessionRecording } from "../../src/recording/sessionRecorder";
 import { playRemoteAudio } from "../../src/audio/playRemoteAudio";
 import { clearSessionId } from "../../src/storage/session";
@@ -32,6 +33,34 @@ jest.mock("expo-keep-awake", () => ({
   deactivateKeepAwake: jest.fn(),
   activateKeepAwakeAsync: jest.fn(),
 }));
+
+// GitHub finding: useNetworkTolerance (question.tsx) dispatches SET_ERROR
+// with a Turkish explanation and redirects here when the interview is
+// auto-terminated after 45s of sustained disconnection — but ResultScreen
+// never read state.error, so the user just saw the normal "thank you"
+// screen with no indication anything went wrong.
+function SeedError({ message }: { message: string }) {
+  const { dispatch } = useInterview();
+  useEffect(() => {
+    dispatch({ type: "SET_ERROR", error: message });
+  }, [dispatch, message]);
+  return null;
+}
+
+test("shows the termination reason instead of the normal thank-you message when the interview ended due to an error", async () => {
+  jest.mocked(playRemoteAudio).mockResolvedValue();
+  jest.mocked(stopSessionRecording).mockResolvedValue();
+
+  render(
+    <InterviewProvider>
+      <SeedError message="Bağlantı kesintisi çok uzun sürdü, mülakat sonlandırıldı." />
+      <ResultScreen />
+    </InterviewProvider>
+  );
+
+  expect(screen.getByText("Bağlantı kesintisi çok uzun sürdü, mülakat sonlandırıldı.")).toBeTruthy();
+  expect(screen.queryByText("Mülakat Tamamlandı")).toBeNull();
+});
 
 test("plays closing audio, stops session recording, and clears stored session", async () => {
   jest.mocked(playRemoteAudio).mockResolvedValue();
