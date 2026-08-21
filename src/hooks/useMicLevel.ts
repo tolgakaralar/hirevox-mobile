@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
 import LiveAudioStream from "react-native-live-audio-stream";
 import { toByteArray } from "base64-js";
 import { computeRmsLevel } from "../utils/audioLevel";
@@ -20,12 +21,7 @@ export function useMicLevel(active: boolean) {
     setLevel(0);
   }, []);
 
-  useEffect(() => {
-    if (!active) {
-      stop();
-      return;
-    }
-
+  const start = useCallback(() => {
     runningRef.current = true;
     LiveAudioStream.init({
       sampleRate: 16000,
@@ -39,9 +35,33 @@ export function useMicLevel(active: boolean) {
       setLevel(computeRmsLevel(toByteArray(base64Chunk)));
     });
     LiveAudioStream.start();
+  }, []);
 
-    return () => stop();
-  }, [active, stop]);
+  useEffect(() => {
+    if (!active) {
+      stop();
+      return;
+    }
+
+    start();
+
+    // iOS suspends microphone capture while the app is backgrounded (same
+    // as it does the camera — see CameraHost/sessionRecorder) and doesn't
+    // resume producing data on its own once foregrounded again, so the
+    // stream has to be explicitly restarted. Same AppState "active" check
+    // PrepScreen/CameraHost already use to re-check permission.
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active" && runningRef.current) {
+        stop();
+        start();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+      stop();
+    };
+  }, [active, start, stop]);
 
   return { level, stop };
 }

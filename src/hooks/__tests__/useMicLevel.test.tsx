@@ -1,3 +1,4 @@
+import { AppState } from "react-native";
 import { renderHook, act } from "@testing-library/react-native";
 import LiveAudioStream from "react-native-live-audio-stream";
 import { fromByteArray } from "base64-js";
@@ -9,6 +10,8 @@ jest.mock("react-native-live-audio-stream", () => ({
   stop: jest.fn(),
   on: jest.fn(),
 }));
+
+let appStateHandler: (state: string) => void = () => {};
 
 function loudChunkBase64(): string {
   const bytes = new Uint8Array(64);
@@ -27,6 +30,11 @@ function emitData(chunkBase64: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  appStateHandler = () => {};
+  jest.spyOn(AppState, "addEventListener").mockImplementation((_event, handler) => {
+    appStateHandler = handler as (state: string) => void;
+    return { remove: jest.fn() } as never;
+  });
 });
 
 test("inactive: does not start the audio stream, level stays 0", () => {
@@ -66,6 +74,30 @@ test("unmounting while active stops the stream", () => {
   const { unmount } = renderHook(() => useMicLevel(true));
   unmount();
   expect(LiveAudioStream.stop).toHaveBeenCalled();
+});
+
+// GitHub finding: backgrounding the app while on PrepScreen (iOS suspends
+// microphone capture for backgrounded apps, same as it does the camera —
+// see CameraHost/sessionRecorder's own handling of this) then returning to
+// foreground left the bar frozen — LiveAudioStream's underlying capture
+// session doesn't resume producing data on its own, it needs to be
+// explicitly restarted, same reasoning as the permission re-checks
+// PrepScreen and CameraHost already do on the same AppState transition.
+test("restarts the stream on returning to foreground, since iOS suspends mic capture while backgrounded", () => {
+  renderHook(() => useMicLevel(true));
+  expect(LiveAudioStream.start).toHaveBeenCalledTimes(1);
+
+  act(() => appStateHandler("background"));
+  act(() => appStateHandler("active"));
+
+  expect(LiveAudioStream.stop).toHaveBeenCalled();
+  expect(LiveAudioStream.start).toHaveBeenCalledTimes(2);
+});
+
+test("does not restart the stream on foreground if it wasn't active to begin with", () => {
+  renderHook(() => useMicLevel(false));
+  act(() => appStateHandler("active"));
+  expect(LiveAudioStream.start).not.toHaveBeenCalled();
 });
 
 // PrepScreen must be able to guarantee the metering stream is torn down
