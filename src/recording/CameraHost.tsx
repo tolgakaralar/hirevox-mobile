@@ -1,9 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, AppState } from "react-native";
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import { usePathname } from "expo-router";
 import { useCameraRef } from "./CameraRefContext";
+import { subscribeCameraReset } from "./cameraResetSignal";
 import { colors } from "../theme/tokens";
+
+// How long to hold the camera off before turning it back on. Long enough
+// for the native capture session to actually tear down (a same-tick
+// off/on wouldn't give it a chance to), short enough to be an
+// imperceptible blip on screen.
+const RESET_HOLD_MS = 150;
 
 type Mode = "prep" | "pip" | "hidden";
 
@@ -39,10 +46,27 @@ export function CameraHost() {
     return () => subscription.remove();
   }, [getCameraPerm, getMicPerm]);
 
+  // GitHub finding: the live preview could come back frozen (stuck on the
+  // last frame) when starting a fresh interview later in the same app run
+  // (Result -> Bitti -> Login -> re-login -> Consent -> Prep) — the native
+  // capture session doesn't reliably resume live frames on its own after
+  // stopSessionRecording()'s stopRecording() call. `active` is exactly the
+  // prop expo-camera provides to force-restart the session without
+  // unmounting (CameraView must never unmount — see CLAUDE.md);
+  // stopSessionRecording() signals this once recording is fully done.
+  const [cameraActive, setCameraActive] = useState(true);
+
+  useEffect(() => {
+    return subscribeCameraReset(() => {
+      setCameraActive(false);
+      setTimeout(() => setCameraActive(true), RESET_HOLD_MS);
+    });
+  }, []);
+
   if (mode === "prep") {
     return (
       <View style={styles.prepContainer} pointerEvents="none">
-        <CameraView ref={cameraRef} facing="front" mode="video" videoQuality="480p" style={styles.prepCamera} />
+        <CameraView ref={cameraRef} active={cameraActive} facing="front" mode="video" videoQuality="480p" style={styles.prepCamera} />
         <View style={styles.prepOverlay}>
           <View style={styles.prepOverlayDot} />
           <Text style={styles.prepOverlayText}>Şu an kaydedilmiyorsunuz — bu yalnızca bir önizlemedir</Text>
@@ -54,7 +78,7 @@ export function CameraHost() {
   if (mode === "pip") {
     return (
       <View style={styles.pipContainer} pointerEvents="none">
-        <CameraView ref={cameraRef} facing="front" mode="video" videoQuality="480p" style={styles.pipCamera} />
+        <CameraView ref={cameraRef} active={cameraActive} facing="front" mode="video" videoQuality="480p" style={styles.pipCamera} />
         <View style={styles.pipStrip}>
           <View style={styles.pipDot} />
           <Text style={styles.pipLabel}>Kayıt</Text>
@@ -65,7 +89,7 @@ export function CameraHost() {
 
   return (
     <View style={styles.hiddenContainer} pointerEvents="none">
-      <CameraView ref={cameraRef} facing="front" mode="video" videoQuality="480p" style={styles.hidden} />
+      <CameraView ref={cameraRef} active={cameraActive} facing="front" mode="video" videoQuality="480p" style={styles.hidden} />
     </View>
   );
 }

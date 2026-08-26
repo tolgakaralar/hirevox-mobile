@@ -6,6 +6,7 @@ import {
   stopSessionRecording,
 } from "../sessionRecorder";
 import { uploadVideoChunk, finalizeVideoSegment } from "../../api/client";
+import { subscribeCameraReset } from "../cameraResetSignal";
 
 jest.mock("../../api/client");
 
@@ -58,6 +59,23 @@ test("stop finalizes the current in-flight segment and drains the queue", async 
 
   expect(ref.current!.stopRecording).toHaveBeenCalled();
   expect(finalizeVideoSegment).toHaveBeenCalled();
+});
+
+// GitHub finding: the live camera preview could come back frozen when a
+// fresh interview starts later in the same app run (no relaunch) — the
+// native session apparently doesn't reliably resume live frames on its
+// own after stopRecording(). Signaling a reset here (once recording is
+// fully, definitely done) lets CameraHost force-restart its session via
+// expo-camera's `active` prop toggle.
+test("stop signals a camera reset so CameraHost can refresh a possibly-stuck preview for the next session", async () => {
+  const ref = fakeCameraRef();
+  const onReset = jest.fn();
+  subscribeCameraReset(onReset);
+
+  await startSessionRecording("s1", ref as never);
+  await stopSessionRecording();
+
+  expect(onReset).toHaveBeenCalledTimes(1);
 });
 
 test("AppState transition to background auto-pauses; returning to active auto-resumes", async () => {

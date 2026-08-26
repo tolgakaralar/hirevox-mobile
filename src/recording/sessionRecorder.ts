@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 import { AppState, type AppStateStatus, type NativeEventSubscription } from "react-native";
 import { createUploadQueue } from "./uploadQueue";
 import { uploadVideoChunk, finalizeVideoSegment } from "../api/client";
+import { triggerCameraReset } from "./cameraResetSignal";
 
 interface CameraLike {
   // Matches expo-camera's real CameraView.recordAsync signature: no `quality`
@@ -131,4 +132,8 @@ export async function stopSessionRecording(): Promise<void> {
   await queue.drain();
   currentSessionId = null;
   currentCameraRef = null;
+  // Recording is fully, definitely done now — safe point to force-refresh
+  // a possibly-stuck preview before the next interview (if any) reaches
+  // PrepScreen again in this same app run.
+  triggerCameraReset();
 }

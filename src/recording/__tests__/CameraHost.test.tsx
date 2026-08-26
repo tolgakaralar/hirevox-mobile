@@ -1,7 +1,8 @@
 import { AppState } from "react-native";
-import { render, waitFor } from "@testing-library/react-native";
+import { render, waitFor, act } from "@testing-library/react-native";
 import { CameraHost } from "../CameraHost";
 import { CameraRefProvider } from "../CameraRefContext";
+import { triggerCameraReset } from "../cameraResetSignal";
 
 const mockUsePathname = jest.fn();
 jest.mock("expo-router", () => ({ usePathname: () => mockUsePathname() }));
@@ -91,6 +92,34 @@ test("returns to full-size /prep mode once permission is granted after returning
   await waitFor(() =>
     expect(lastProps.style).toMatchObject({ position: "absolute", top: 0, left: 0, right: 0 })
   );
+});
+
+// GitHub finding: returning to a fresh PrepScreen after a full interview
+// cycle (Result's "Bitti" -> Login -> re-login -> Consent -> Prep, all
+// within the same app run, no relaunch) showed a frozen camera preview —
+// the native capture session apparently doesn't cleanly resume live
+// frames on its own after stopSessionRecording()'s stopRecording() call.
+// expo-camera's `active` prop exists precisely to force-restart the
+// session without unmounting (required — CameraView must never unmount,
+// see CLAUDE.md); stopSessionRecording() fires this signal once recording
+// is fully done, CameraHost consumes it here.
+test("toggles the camera off and back on when a camera reset is signaled, to force a fresh session without unmounting", () => {
+  jest.useFakeTimers();
+  mockUsePathname.mockReturnValue("/prep");
+  render(
+    <CameraRefProvider>
+      <CameraHost />
+    </CameraRefProvider>
+  );
+  expect(lastProps.active).not.toBe(false);
+
+  act(() => triggerCameraReset());
+  expect(lastProps.active).toBe(false);
+
+  act(() => jest.runAllTimers());
+  expect(lastProps.active).toBe(true);
+
+  jest.useRealTimers();
 });
 
 test.each(["/intro", "/question"])("PiP style while on %s", (pathname) => {
