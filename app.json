@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Hirevox Mobile",
+    "slug": "hirevox-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "hirevox",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Mülakat sırasında kamera görüntünüz kaydedilir.",
+          "microphonePermission": "Mülakat sırasında sesiniz kaydedilir."
+        }
+      ],
+      "expo-audio"
+    ],
+    "ios": {
+      "appleTeamId": "WHH9F4X599",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Mülakat sırasında kamera görüntünüz kaydedilir.",
+        "NSMicrophoneUsageDescription": "Mülakat sırasında sesiniz kaydedilir."
+      },
+      "bundleIdentifier": "com.anonymous.hirevox-mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "interview.hirevox.example"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

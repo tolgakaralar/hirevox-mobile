@@ -18,7 +18,7 @@
 | Proctoring/video | Web'deki gibi oturum boyu kamera+ses kaydı, 10sn'lik chunk upload |
 | Arka plana düşme | Bütünlük olayı olarak loglanır; video OS kısıtı nedeniyle duraklar, ön plana dönünce devam eder |
 | Kod soruları | Sözlü sorulur, aday sözlü açıklar (yazılı kod editörü yok) |
-| Giriş | Deep link ile uygulama açılır (mail linki → token URL'den okunur), aday erişim kodunu girer |
+| Giriş | Aday sadece erişim kodunu girer — video-ai'nin 2026-08-18'de kaldırdığı kişiye özel link/token sistemi mobilde de yok, `POST /api/login` artık sadece `{code}` alıyor |
 | Bağlantı kesintisi | Kısa toleransla (30-60sn) yerelde buffer'lanır, aşılırsa mülakat sonlandırılır |
 | Soru-cevap akışı | Web ile aynı: canlı streaming STT (`/ws/stt` WebSocket, Deepgram relay) |
 | Mimari yaklaşım | Native RN/Expo, mevcut API'lere doğrudan bağlanır (backend'e dokunulmaz) |
@@ -37,7 +37,7 @@ Yeni bir Expo (React Native) uygulaması, `video-ai` backend'inin mevcut REST AP
 
 **Web ekranları → Mobil ekranları**
 
-- LoginPage → LoginScreen — Deep link'ten token otomatik okunur, kullanıcı sadece erişim kodunu girer
+- LoginPage → LoginScreen — kullanıcı erişim kodunu girer (kişiye özel link/token sistemi backend'den kaldırıldı, bkz. video-ai `docs/features/2026-08-18-kisiye-ozel-giris-linkini-kaldir.md`)
 - ConsentPage → ConsentScreen — KVKK + proctoring (video/ses kaydı) onay metni
 - PrepPage → PrepScreen — Kamera/mikrofon izni istenir + önizleme
 - IntroPage → IntroScreen — TTS karşılama, 2dk tanıtım kaydı
@@ -50,11 +50,11 @@ Yeni bir Expo (React Native) uygulaması, `video-ai` backend'inin mevcut REST AP
 - **SessionRecorder** — Consent onayından itibaren oturum boyu kamera+ses kaydı, 10sn chunk'larla upload; ağ kesintisinde chunk'ları yerelde buffer'lar.
 - **QuestionRecorder** — Her soruda cevabı kaydeder, `/ws/stt`'ye canlı akıtır (web'deki `Recorder.jsx` mantığının native karşılığı).
 - **useProctor (mobil)** — `AppState` ile arka plan/ön plana geçişi izler, `/api/integrity/event`'e loglar.
-- **DeepLinkHandler** — Universal Links/App Links ile gelen linkten token'ı çözüp LoginScreen'e aktarır.
+- **DeepLinkHandler** — `/` (app root) rotasını `/login`'e yönlendirir; artık bir token taşımıyor, sadece uygulamanın doğrudan mail linkinden ("Unmatched" ekranına düşmeden) açılmasını sağlar.
 
 ## Veri Akışı
 
-**Giriş:** Aday mail'deki linke tıklar → deep link uygulamayı açar → token URL'den okunur → LoginScreen'de erişim kodu girilir → `POST /api/login {code, token}` → `sessionId` alınır ve cihazda (SecureStore) tutulur.
+**Giriş:** Aday mail'deki (artık kişiye özel olmayan, genel) linke tıklar → deep link uygulamayı açar → LoginScreen'de erişim kodu girilir → `POST /api/login {code}` → `sessionId` alınır ve cihazda (SecureStore) tutulur.
 
 **Mülakat ilerleyişi:** Consent onayı (`/api/interview/consent`) ile SessionRecorder başlar (oturum boyu video+ses, 10sn chunk upload). Intro ve her soru için QuestionRecorder cevabı `/ws/stt` üzerinden canlı akıtır, dönen transkript `askedText`/`transcript` ile `/api/interview/answer`'a gönderilir. Sıradaki soru `/api/interview/next` ile (zorluk merdiveni mantığı backend'de) çekilir. Son soru sonrası `/api/interview/finish-questions` çağrılır, SessionRecorder durur ve son chunk'lar flush edilir.
 
@@ -86,7 +86,7 @@ Planlama sırasında bulunan, spec'in "backend'e dokunulmaz" kararına iki izole
 
 - **İzin reddi:** Kamera/mikrofon izni verilmezse PrepScreen'de engelleyici bir ekran gösterilir, "Ayarlar'a git" yönlendirmesi sunulur; izin verilmeden mülakata geçilemez.
 - **Canlı STT bağlantı hatası:** `/ws/stt` kurulamazsa web'deki gibi batch `/api/stt` fallback'ine düşülür — aynı mantık mobile taşınır.
-- **Giriş hatası:** Token eksik/geçersiz veya kod yanlışsa LoginScreen'de açık hata mesajı gösterilir, tekrar denenebilir.
+- **Giriş hatası:** Kod yanlışsa LoginScreen'de açık hata mesajı gösterilir, tekrar denenebilir.
 - **Uygulama zorla kapatılırsa (force-quit):** Yeniden açıldığında SecureStore'daki `sessionId` ile `/api/interview/session` sorgulanır, backend'deki mevcut duruma göre doğru ekrana (consent/intro/questions/vb.) yönlendirilir — web'de sayfa yenilemenin karşılığı, ekstra bir "kaldığı yerden devam" mekanizması icat etmeye gerek yok.
 - **TTS çalınamazsa:** Web'deki davranışla tutarlı olarak sessiz geçilir; soru metni ekranda her zaman yazılı olarak da gösterilir (failsafe).
 - **Backend/sunucu hatası (5xx):** Kullanıcıya genel bir hata ekranı + "tekrar dene" seçeneği; kritik adımlarda (login, answer, finish-questions) otomatik kısa retry.

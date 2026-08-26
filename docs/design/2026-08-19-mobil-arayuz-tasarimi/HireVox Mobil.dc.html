@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><style>body{margin:0;background:#EFE8DE}a{color:#C97B34}a:hover{color:#A9611F}</style></helmet>
+<div style="min-height:100vh;box-sizing:border-box;padding:48px 40px;font-family:-apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;display:flex;flex-direction:column;gap:28px">
+<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+<div style="font-weight:700;font-size:15px;line-height:1.2;color:#3D3226">HireVox Mobil — aday mülakat akışı</div>
+<div style="font-weight:400;font-size:12.5px;line-height:1.4;color:#8A7A69">Tek kod tabanı (React Native). Her çerçeve tıklanabilir; erişim kodu 6+ karakter.</div>
+</div>
+
+<sc-if value="{{ showAll }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;gap:36px;align-items:flex-start">
+<div style="display:flex;flex-direction:column;gap:11px">
+<div style="font:600 11px/1 ui-monospace,Menlo,monospace;color:#8A7A69;letter-spacing:.7px">01 · LOGIN</div>
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px"><dc-import name="HireVoxFlow" start-screen="login" style="height:100%" hint-size="100%,100%"></dc-import></x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:11px">
+<div style="font:600 11px/1 ui-monospace,Menlo,monospace;color:#8A7A69;letter-spacing:.7px">02 · CONSENT</div>
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px"><dc-import name="HireVoxFlow" start-screen="consent" style="height:100%" hint-size="100%,100%"></dc-import></x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:11px">
+<div style="font:600 11px/1 ui-monospace,Menlo,monospace;color:#8A7A69;letter-spacing:.7px">03 · PREP</div>
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px"><dc-import name="HireVoxFlow" start-screen="prep" style="height:100%" hint-size="100%,100%"></dc-import></x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:11px">
+<div style="font:600 11px/1 ui-monospace,Menlo,monospace;color:#8A7A69;letter-spacing:.7px">04 · INTRO</div>
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px"><dc-import name="HireVoxFlow" start-screen="intro" style="height:100%" hint-size="100%,100%"></dc-import></x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:11px">
+<div style="font:600 11px/1 ui-monospace,Menlo,monospace;color:#8A7A69;letter-spacing:.7px">05 · QUESTION</div>
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px"><dc-import name="HireVoxFlow" start-screen="question" style="height:100%" hint-size="100%,100%"></dc-import></x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:11px">
+<div style="font:600 11px/1 ui-monospace,Menlo,monospace;color:#8A7A69;letter-spacing:.7px">06 · EVALUATING</div>
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px"><dc-import name="HireVoxFlow" start-screen="evaluating" style="height:100%" hint-size="100%,100%"></dc-import></x-import>
+</div>
+<div style="display:flex;flex-direction:column;gap:11px">
+<div style="font:600 11px/1 ui-monospace,Menlo,monospace;color:#8A7A69;letter-spacing:.7px">07 · RESULT</div>
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px"><dc-import name="HireVoxFlow" start-screen="result" style="height:100%" hint-size="100%,100%"></dc-import></x-import>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showSingle }}">
+<div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start">
+<sc-if value="{{ showIOS }}">
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px"><dc-import name="HireVoxFlow" start-screen="{{ startScreen }}" style="height:100%" hint-size="100%,100%"></dc-import></x-import>
+</sc-if>
+<sc-if value="{{ showAndroid }}">
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px"><dc-import name="HireVoxFlow" start-screen="{{ startScreen }}" style="height:100%" hint-size="100%,100%"></dc-import></x-import>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;tüm ekranlar&quot;,&quot;tek akış&quot;],&quot;default&quot;:&quot;tüm ekranlar&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ios&quot;,&quot;android&quot;,&quot;both&quot;],&quot;default&quot;:&quot;ios&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Tek akış&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;login&quot;,&quot;consent&quot;,&quot;prep&quot;,&quot;intro&quot;,&quot;question&quot;,&quot;evaluating&quot;,&quot;result&quot;],&quot;default&quot;:&quot;login&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Tek akış&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const view = this.props.view ?? 'tüm ekranlar';
+    const p = this.props.platform ?? 'ios';
+    return {
+      showAll: view === 'tüm ekranlar',
+      showSingle: view === 'tek akış',
+      showIOS: p === 'ios' || p === 'both',
+      showAndroid: p === 'android' || p === 'both',
+      startScreen: this.props.startScreen ?? 'login',
+    };
+  }
+}
+</script>
+</body>
+</html>
